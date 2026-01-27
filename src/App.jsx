@@ -108,6 +108,14 @@ function formatVendorNameWithCompany(value) {
   return name
 }
 
+function formatAfterColon(value) {
+  if (!value) return ''
+  const raw = String(value)
+  const parts = raw.split(':')
+  const tail = parts.length > 1 ? parts.slice(1).join(':') : raw
+  return formatName(tail)
+}
+
 function formatCountLabel(value) {
   const count = Math.round(parseNumericValue(value))
   if (!count) return '0 propostas'
@@ -340,7 +348,7 @@ function buildRankingsFromRows(rows) {
   })
   const supervisores = buildGroups(safeRows, equipeKey, franquiaKey, {
     multiLabel: 'VARIAS FRANQUIAS',
-    nameFormatter: formatName,
+    nameFormatter: formatAfterColon,
     metaFormatter: formatName,
     valueKey,
   })
@@ -400,6 +408,7 @@ function buildRankingsFromLists(lists) {
     nameKey: 'equipe_nome',
     metaKey: 'franquia_nome',
     valueKey: 'valor_referencia',
+    nameFormatter: formatAfterColon,
   })
   const gerentes = makeRows(lists.franquias, {
     nameKey: 'franquia_nome',
