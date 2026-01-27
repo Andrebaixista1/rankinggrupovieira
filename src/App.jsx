@@ -78,6 +78,34 @@ function normalizeMeta(value) {
   return String(value).replace(/\s+/g, ' ').trim()
 }
 
+function formatPersonName(value) {
+  if (!value) return ''
+  const cleaned = String(value).replace(/\s+/g, ' ').trim()
+  if (!cleaned) return ''
+  const parts = cleaned.split(' ').filter(Boolean)
+  if (parts.length === 1) {
+    const word = parts[0]
+    return word[0].toUpperCase() + word.slice(1).toLowerCase()
+  }
+  const first = parts[0]
+  const last = parts[parts.length - 1]
+  const firstName = first[0].toUpperCase() + first.slice(1).toLowerCase()
+  const lastName = last[0].toUpperCase() + last.slice(1).toLowerCase()
+  return `${firstName} ${lastName}`
+}
+
+function formatVendorNameWithCompany(value) {
+  if (!value) return ''
+  const raw = String(value)
+  const [before, ...rest] = raw.split('/')
+  const name = formatPersonName(before)
+  const company = rest.length ? rest.join('/').replace(/\s+/g, ' ').trim() : ''
+  if (company) {
+    return name ? `${name} / ${company}` : company
+  }
+  return name
+}
+
 function formatCountLabel(value) {
   const count = Math.round(parseNumericValue(value))
   if (!count) return '0 propostas'
@@ -304,7 +332,7 @@ function buildRankingsFromRows(rows) {
 
   const vendedores = buildGroups(safeRows, vendorKey, equipeKey, {
     multiLabel: 'VARIAS EQUIPES',
-    nameFormatter: normalizeMeta,
+    nameFormatter: formatVendorNameWithCompany,
     valueKey,
   })
   const supervisores = buildGroups(safeRows, equipeKey, franquiaKey, {
@@ -329,7 +357,8 @@ function buildRankingsFromLists(lists) {
   const makeRows = (list, config) => {
     const safeList = Array.isArray(list) ? list : []
     const rows = safeList.map((item) => {
-      const name = normalizeMeta(item?.[config.nameKey])
+      const rawName = item?.[config.nameKey]
+      const name = config.nameFormatter ? config.nameFormatter(rawName) : normalizeMeta(rawName)
       if (!name) return null
       const value = parseNumericValue(
         item?.[config.valueKey]
@@ -361,6 +390,7 @@ function buildRankingsFromLists(lists) {
     nameKey: 'vendedor_nome',
     metaKey: 'equipe_nome',
     valueKey: 'valor_referencia',
+    nameFormatter: formatVendorNameWithCompany,
   })
   const supervisores = makeRows(lists.equipes, {
     nameKey: 'equipe_nome',

@@ -136,6 +136,17 @@
   align-content: stretch;
 }
 
+.empty-state {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 1px dashed #d3daea;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
 .rank-grid.vendors-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(5, minmax(0, 1fr));
@@ -254,6 +265,11 @@
   background: linear-gradient(90deg, var(--accent-2), var(--accent));
   animation: progress 30s linear forwards;
   transform-origin: left;
+}
+
+.progress-bar.paused {
+  animation: none;
+  transform: scaleX(0);
 }
 
 .footnote {
