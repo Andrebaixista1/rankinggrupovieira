@@ -33,8 +33,8 @@ const baseRankings = [
 
 const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
 const PRIMARY_API_URL = '/api/ranking'
-const REFRESH_INTERVAL_WITH_DATA = 30000
-const REFRESH_INTERVAL_NO_DATA = 5000
+const ROTATION_INTERVAL = 30000
+const RETRY_INTERVAL_NO_DATA = 5000
 
 function buildApiUrl(raw) {
   if (!raw) return ''
@@ -78,20 +78,22 @@ function normalizeMeta(value) {
   return String(value).replace(/\s+/g, ' ').trim()
 }
 
+function formatName(value) {
+  const normalized = normalizeMeta(value)
+  return normalized ? normalized.toUpperCase() : ''
+}
+
 function formatPersonName(value) {
   if (!value) return ''
   const cleaned = String(value).replace(/\s+/g, ' ').trim()
   if (!cleaned) return ''
   const parts = cleaned.split(' ').filter(Boolean)
   if (parts.length === 1) {
-    const word = parts[0]
-    return word[0].toUpperCase() + word.slice(1).toLowerCase()
+    return parts[0].toUpperCase()
   }
   const first = parts[0]
   const last = parts[parts.length - 1]
-  const firstName = first[0].toUpperCase() + first.slice(1).toLowerCase()
-  const lastName = last[0].toUpperCase() + last.slice(1).toLowerCase()
-  return `${firstName} ${lastName}`
+  return `${first.toUpperCase()} ${last.toUpperCase()}`
 }
 
 function formatVendorNameWithCompany(value) {
@@ -99,7 +101,7 @@ function formatVendorNameWithCompany(value) {
   const raw = String(value)
   const [before, ...rest] = raw.split('/')
   const name = formatPersonName(before)
-  const company = rest.length ? rest.join('/').replace(/\s+/g, ' ').trim() : ''
+  const company = rest.length ? formatName(rest.join('/')) : ''
   if (company) {
     return name ? `${name} / ${company}` : company
   }
@@ -333,11 +335,13 @@ function buildRankingsFromRows(rows) {
   const vendedores = buildGroups(safeRows, vendorKey, equipeKey, {
     multiLabel: 'VARIAS EQUIPES',
     nameFormatter: formatVendorNameWithCompany,
+    metaFormatter: formatName,
     valueKey,
   })
   const supervisores = buildGroups(safeRows, equipeKey, franquiaKey, {
     multiLabel: 'VARIAS FRANQUIAS',
-    nameFormatter: normalizeMeta,
+    nameFormatter: formatName,
+    metaFormatter: formatName,
     valueKey,
   })
   const gerentes = buildGroups(safeRows, franquiaKey, 'empresa', {
@@ -358,7 +362,7 @@ function buildRankingsFromLists(lists) {
     const safeList = Array.isArray(list) ? list : []
     const rows = safeList.map((item) => {
       const rawName = item?.[config.nameKey]
-      const name = config.nameFormatter ? config.nameFormatter(rawName) : normalizeMeta(rawName)
+      const name = config.nameFormatter ? config.nameFormatter(rawName) : formatName(rawName)
       if (!name) return null
       const value = parseNumericValue(
         item?.[config.valueKey]
@@ -378,7 +382,7 @@ function buildRankingsFromLists(lists) {
           ?? item?.propostas
         meta = formatCountLabel(countValue)
       } else if (config.metaKey) {
-        meta = normalizeMeta(item?.[config.metaKey])
+        meta = formatName(item?.[config.metaKey])
       }
       return { name, meta, value }
     }).filter(Boolean)
@@ -458,19 +462,6 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (isLoading || rankings.every((item) => item.rows.length === 0)) {
-      return undefined
-    }
-
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % rankings.length)
-      setCycleKey((prev) => prev + 1)
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [isLoading, rankings])
-
-  useEffect(() => {
     fetchData()
   }, [fetchData])
 
@@ -484,18 +475,35 @@ function App() {
   })
 
   useEffect(() => {
+    if (isLoading || !hasData) {
+      return undefined
+    }
+
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => {
+        const next = (prev + 1) % rankings.length
+        if (next === 0 && hasLoadedRef.current) {
+          fetchData()
+        }
+        return next
+      })
+      setCycleKey((prev) => prev + 1)
+    }, ROTATION_INTERVAL)
+
+    return () => clearInterval(interval)
+  }, [fetchData, hasData, isLoading, rankings.length])
+
+  useEffect(() => {
+    if (hasData) {
+      return undefined
+    }
+
     const interval = setInterval(() => {
       fetchData()
-    }, hasData ? REFRESH_INTERVAL_WITH_DATA : REFRESH_INTERVAL_NO_DATA)
+    }, RETRY_INTERVAL_NO_DATA)
 
     return () => clearInterval(interval)
   }, [fetchData, hasData])
-
-  useEffect(() => {
-    if (activeIndex === 0 && hasLoadedRef.current) {
-      fetchData()
-    }
-  }, [activeIndex, fetchData])
 
   useEffect(() => {
     if (hasData) {
