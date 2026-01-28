@@ -88,6 +88,10 @@
   min-height: 0;
 }
 
+.rank-card.has-gradient {
+  background: linear-gradient(180deg, #056EEA 0%, #ffffff 65%);
+}
+
 .intro-screen {
   align-items: center;
   justify-content: center;
@@ -152,6 +156,7 @@
   font-size: clamp(2.4rem, 3.3vw, 3.2rem);
   font-family: var(--display-font);
   font-weight: 800;
+  color: #1c1c1c;
 }
 
 .rank-status {
@@ -216,28 +221,18 @@
 }
 
 .rank-row.with-avatar {
-  grid-template-columns: 140px 1fr auto auto;
+  grid-template-columns: 160px 1fr auto auto;
 }
 
 .rank-row.podium {
-  border-color: rgba(6, 110, 234, 0.25);
-  background: linear-gradient(90deg, rgba(6, 110, 234, 0.08), #ffffff 55%);
-}
-
-.rank-row.leader {
-  border-color: rgba(6, 110, 234, 0.6);
-  box-shadow: 0 18px 30px rgba(6, 110, 234, 0.2);
-}
-
-.rank-row.leader .rank-pos {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #ffffff;
+  border-color: #e6ebf5;
+  background: #ffffff;
 }
 
 .rank-pos-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .rank-pos {
@@ -282,6 +277,31 @@
   display: grid;
   place-items: center;
   letter-spacing: 0.04em;
+}
+
+.rank-trophy {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+}
+
+.rank-trophy svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.rank-trophy.gold {
+  color: #d6a700;
+}
+
+.rank-trophy.silver {
+  color: #9aa5b1;
+}
+
+.rank-trophy.bronze {
+  color: #c07a3a;
 }
 
 .rank-name {
@@ -508,7 +528,7 @@
   }
 
   .rank-row.with-avatar {
-    grid-template-columns: 140px 1fr;
+    grid-template-columns: 160px 1fr;
   }
 
   .rank-metrics {
