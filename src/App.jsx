@@ -4,7 +4,7 @@ import './App.css'
 const baseRankings = [
   {
     id: 'vendedores',
-    kicker: 'Vendas',
+    kicker: 'VENDAS',
     title: 'Ranking TOP 10 Vendedores',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
@@ -13,7 +13,7 @@ const baseRankings = [
   },
   {
     id: 'supervisores',
-    kicker: 'Operacao',
+    kicker: 'OPERACAO',
     title: 'Ranking TOP 5 Supervisores',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
@@ -22,7 +22,7 @@ const baseRankings = [
   },
   {
     id: 'gerentes',
-    kicker: 'Gestao',
+    kicker: 'GESTAO',
     title: 'Ranking Grupo',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
