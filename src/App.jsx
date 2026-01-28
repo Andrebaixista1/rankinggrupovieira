@@ -23,7 +23,7 @@ const baseRankings = [
   {
     id: 'gerentes',
     kicker: 'Gestao',
-    title: 'Ranking Gerentes',
+    title: 'Ranking Grupo',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
     limit: 5,
@@ -154,6 +154,7 @@ function buildGroups(rows, groupKey, metaKey, options = {}) {
     metaFormatter,
     nameFormatter,
     valueKey = 'soma_valor_referencia',
+    imageKey,
   } = options
   const map = new Map()
 
@@ -164,6 +165,7 @@ function buildGroups(rows, groupKey, metaKey, options = {}) {
     const rawMeta = row?.[metaKey]
     const metaValue = metaFormatter ? metaFormatter(rawMeta) : normalizeMeta(rawMeta)
     const value = parseNumericValue(row?.[valueKey])
+    const imageValue = imageKey ? normalizeMeta(row?.[imageKey]) : ''
 
     if (!map.has(rawName)) {
       map.set(rawName, {
@@ -171,6 +173,7 @@ function buildGroups(rows, groupKey, metaKey, options = {}) {
         meta: metaValue,
         value,
         count: 1,
+        image: imageValue,
       })
       return
     }
@@ -178,6 +181,9 @@ function buildGroups(rows, groupKey, metaKey, options = {}) {
     const current = map.get(rawName)
     current.value += value
     current.count += 1
+    if (!current.image && imageValue) {
+      current.image = imageValue
+    }
     if (metaValue) {
       if (!current.meta) {
         current.meta = metaValue
@@ -292,10 +298,7 @@ function extractRankingLists(payload) {
 
 function assembleRankings({ vendedores, supervisores, gerentes }) {
   const addBadge = (list) =>
-    list.map((item, index) => ({
-      ...item,
-      badge: index === 0 ? 'Melhor resultado do dia' : undefined,
-    }))
+    list
 
   return [
     {
@@ -339,12 +342,21 @@ function buildRankingsFromRows(rows) {
     'total',
     'valor_total',
   ]) || 'soma_valor_referencia'
+  const imageKey = resolveRowKey(safeRows, [
+    'imagem_perfil',
+    'imagemPerfil',
+    'imagem',
+    'foto',
+    'avatar',
+    'profile_image',
+  ]) || 'imagem_perfil'
 
   const vendedores = buildGroups(safeRows, vendorKey, equipeKey, {
     multiLabel: 'VARIAS EQUIPES',
     nameFormatter: formatVendorNameWithCompany,
     metaFormatter: formatName,
     valueKey,
+    imageKey,
   })
   const supervisores = buildGroups(safeRows, equipeKey, franquiaKey, {
     multiLabel: 'VARIAS FRANQUIAS',
@@ -379,6 +391,9 @@ function buildRankingsFromLists(lists) {
           ?? item?.valor
           ?? item?.total,
       )
+      const image = config.imageKey
+        ? normalizeMeta(item?.[config.imageKey])
+        : normalizeMeta(item?.imagem_perfil)
       let meta = ''
       if (config.count) {
         const countValue =
@@ -392,7 +407,7 @@ function buildRankingsFromLists(lists) {
       } else if (config.metaKey) {
         meta = formatName(item?.[config.metaKey])
       }
-      return { name, meta, value }
+      return { name, meta, value, image }
     }).filter(Boolean)
 
     return rows.sort((a, b) => b.value - a.value)
@@ -403,6 +418,7 @@ function buildRankingsFromLists(lists) {
     metaKey: 'equipe_nome',
     valueKey: 'valor_referencia',
     nameFormatter: formatVendorNameWithCompany,
+    imageKey: 'imagem_perfil',
   })
   const supervisores = makeRows(lists.equipes, {
     nameKey: 'equipe_nome',
@@ -425,6 +441,8 @@ function App() {
   const [cycleKey, setCycleKey] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [hasTimeout, setHasTimeout] = useState(false)
+  const [now, setNow] = useState(() => new Date())
+  const [showIntro, setShowIntro] = useState(true)
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(false)
@@ -434,6 +452,24 @@ function App() {
     return () => {
       isMountedRef.current = false
     }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowIntro(false)
+      setActiveIndex(0)
+      setCycleKey((prev) => prev + 1)
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 60 * 1000)
+
+    return () => clearInterval(interval)
   }, [])
 
   const fetchData = useCallback(async () => {
@@ -477,6 +513,8 @@ function App() {
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
   const canRotate = hasData && !isLoading
+  const totalValue = current.rows.reduce((sum, row) => sum + (row.value || 0), 0)
+  const isBeforeStart = now.getHours() < 9
   const currencyFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -484,7 +522,7 @@ function App() {
   })
 
   useEffect(() => {
-    if (isLoading || !hasData) {
+    if (isLoading || !hasData || showIntro) {
       return undefined
     }
 
@@ -532,6 +570,17 @@ function App() {
   return (
     <div className="app">
       <main className="board">
+        {showIntro ? (
+          <section className="rank-card intro-screen">
+            <div className="intro-content">
+              <p className="intro-title">Ranking Formalizado Grupo Vieira</p>
+              <div className="intro-logo">
+                <img src="/logo-vieira.webp" alt="VieiraCred" />
+              </div>
+              <p className="intro-subtitle">Preparando os rankings...</p>
+            </div>
+          </section>
+        ) : (
         <section key={current.id} className="rank-card">
           <div className="rank-head">
             <div>
@@ -546,28 +595,38 @@ function App() {
           <div className={`rank-grid${current.id === 'vendedores' ? ' vendors-grid' : ''}`}>
             {current.rows.length === 0 ? (
               <div className="empty-state">
-                {hasTimeout
-                  ? 'Nao foi possivel carregar os dados. Verifique a API/Backend ou acione o time de planejamento.'
-                  : 'Aguardando dados da API...'}
+                {isBeforeStart
+                  ? 'Estamos aguardando as primeiras vendas do dia. Bora movimentar o ranking!'
+                  : hasTimeout
+                    ? 'Nao foi possivel carregar os dados. Verifique a API/Backend ou acione o time de planejamento.'
+                    : 'Aguardando dados da API...'}
               </div>
             ) : (
               current.rows.map((row, index) => {
-                const next = current.rows[index + 1]
-                const trendValue = next ? ((row.value - next.value) / next.value) * 100 : null
-                const trendText =
-                  trendValue === null
-                    ? null
-                    : `${trendValue >= 0 ? '+' : ''}${Math.round(trendValue)}%`
-                const trendClass = trendValue !== null && trendValue < 0 ? 'down' : 'up'
+                const share = totalValue > 0 ? Math.round((row.value / totalValue) * 100) : 0
+                const trendText = totalValue > 0 ? `${share}%` : null
                 const isPodium = index < 3
                 const isLeader = index === 0
+                const showAvatar = current.id === 'vendedores'
+                const avatarInitial = row.name ? row.name.trim().charAt(0) : ''
                 return (
                   <article
                     key={`${current.id}-${row.name}`}
-                    className={`rank-row${isPodium ? ' podium' : ''}${isLeader ? ' leader' : ''}`}
+                    className={`rank-row${isPodium ? ' podium' : ''}${isLeader ? ' leader' : ''}${showAvatar ? ' with-avatar' : ''}`}
                     style={{ '--delay': `${index * 80}ms` }}
                   >
-                    <div className="rank-pos">{String(index + 1).padStart(2, '0')}</div>
+                    <div className="rank-pos-wrap">
+                      <div className="rank-pos">{String(index + 1).padStart(2, '0')}</div>
+                      {showAvatar ? (
+                        <div className="rank-avatar">
+                          {row.image ? (
+                            <img src={row.image} alt={row.name} loading="lazy" />
+                          ) : (
+                            <div className="rank-avatar-fallback">{avatarInitial}</div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                     <div className="rank-main">
                       <div className="rank-name">{row.name}</div>
                       {row.meta ? <div className="rank-meta">{row.meta}</div> : null}
@@ -575,10 +634,9 @@ function App() {
                     <div className="rank-metrics">
                       <div className="rank-value">{currencyFormatter.format(row.value)}</div>
                       {trendText ? (
-                        <div className={`rank-trend ${trendClass}`}>{trendText}</div>
+                        <div className="rank-trend up">{trendText}</div>
                       ) : null}
                     </div>
-                    {row.badge ? <div className="rank-badge">{row.badge}</div> : null}
                   </article>
                 )
               })
@@ -593,11 +651,10 @@ function App() {
                 <div className="progress-bar paused" />
               )}
             </div>
-            <p className="footnote">
-              Dados atualizados automaticamente via API.
-            </p>
+            <p className="footnote accent">Filtro utilizado no New Corban: Formalizado => Hoje; Os dados são atualizados a cada 10min via API</p>
           </div>
         </section>
+        )}
       </main>
     </div>
   )

@@ -88,6 +88,50 @@
   min-height: 0;
 }
 
+.intro-screen {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 18px;
+}
+
+.intro-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.intro-title {
+  font-size: clamp(1.6rem, 2.4vw, 2.4rem);
+  font-weight: 800;
+  font-family: var(--display-font);
+  margin: 0;
+  color: #1c1c1c;
+}
+
+.intro-subtitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.intro-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 32px;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 18px 30px rgba(6, 110, 234, 0.2);
+  animation: float 3s ease-in-out infinite;
+}
+
+.intro-logo img {
+  width: 72px;
+  height: auto;
+}
+
 .rank-head {
   display: flex;
   align-items: flex-start;
@@ -171,6 +215,10 @@
   min-height: 0;
 }
 
+.rank-row.with-avatar {
+  grid-template-columns: 140px 1fr auto auto;
+}
+
 .rank-row.podium {
   border-color: rgba(6, 110, 234, 0.25);
   background: linear-gradient(90deg, rgba(6, 110, 234, 0.08), #ffffff 55%);
@@ -186,6 +234,12 @@
   color: #ffffff;
 }
 
+.rank-pos-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .rank-pos {
   width: clamp(44px, 5vh, 56px);
   height: clamp(44px, 5vh, 56px);
@@ -196,6 +250,38 @@
   font-size: 1rem;
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.rank-avatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e0e6f2;
+  background: #eef2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rank-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rank-avatar-fallback {
+  width: 70%;
+  height: 70%;
+  border-radius: 8px;
+  background: #d9e1f0;
+  color: #2b2b2b;
+  font-weight: 800;
+  font-size: 1.6rem;
+  display: grid;
+  place-items: center;
+  letter-spacing: 0.04em;
 }
 
 .rank-name {
@@ -276,6 +362,10 @@
   color: var(--muted);
   font-size: 0.95rem;
   margin: 0;
+}
+
+.footnote.accent {
+  color: var(--accent);
 }
 
 .side-panel {
@@ -372,6 +462,16 @@
   }
 }
 
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
 @media (max-width: 1100px) {
   .board {
     grid-template-columns: 1fr;
@@ -405,6 +505,10 @@
   .rank-row {
     grid-template-columns: 52px 1fr;
     row-gap: 8px;
+  }
+
+  .rank-row.with-avatar {
+    grid-template-columns: 140px 1fr;
   }
 
   .rank-metrics {
