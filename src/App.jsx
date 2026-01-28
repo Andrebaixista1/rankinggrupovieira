@@ -26,7 +26,7 @@ const baseRankings = [
     title: 'Ranking Grupo',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
-    limit: 5,
+    limit: null,
     rows: [],
   },
   {
@@ -359,7 +359,10 @@ function extractRankingLists(payload) {
 
 function assembleRankings(rowsById) {
   return baseRankings.map((ranking) => {
-    const rows = (rowsById?.[ranking.id] || []).slice(0, ranking.limit)
+    const sourceRows = rowsById?.[ranking.id] || []
+    const rows = Number.isFinite(ranking.limit)
+      ? sourceRows.slice(0, ranking.limit)
+      : sourceRows
     return { ...ranking, rows }
   })
 }
@@ -602,7 +605,11 @@ function App() {
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
   const canRotate = hasData && !isLoading && !isPaused && !showIntro
-  const totalValue = current.rows.reduce((sum, row) => sum + (row.value || 0), 0)
+  const totalValue = current.rows.reduce(
+    (sum, row) => sum + (Number.isFinite(row.value) ? row.value : 0),
+    0,
+  )
+  const safeTotalValue = Number.isFinite(totalValue) ? totalValue : 0
   const isBeforeStart = now.getHours() < 9
   const hasMissingImages = rankings.some((ranking) =>
     ['vendedores', 'portabilidade', 'novo'].includes(ranking.id)
@@ -616,6 +623,50 @@ function App() {
     currency: 'BRL',
     maximumFractionDigits: 0,
   })
+  const renderRow = (row, index) => {
+    const rowValue = Number.isFinite(row.value) ? row.value : 0
+    const share = safeTotalValue > 0 ? Math.round((rowValue / safeTotalValue) * 100) : 0
+    const trendText = `${share}%`
+    const showAvatar = ['vendedores', 'portabilidade', 'novo'].includes(current.id)
+    const avatarInitial = row.name ? row.name.trim().charAt(0) : ''
+    const trophyClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''
+
+    return (
+      <article
+        key={`${current.id}-${row.name}`}
+        className={`rank-row${trophyClass ? ' podium' : ''}${showAvatar ? ' with-avatar' : ''}`}
+        style={{ '--delay': `${index * 80}ms` }}
+      >
+        <div className="rank-pos-wrap">
+          <div className="rank-pos">{String(index + 1).padStart(2, '0')}</div>
+          {trophyClass ? (
+            <span className={`rank-trophy ${trophyClass}`} aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                <path d="M7 2h10v2h3v3a5 5 0 0 1-5 5h-1.1A6 6 0 0 1 13 14.92V17h3v2H8v-2h3v-2.08A6 6 0 0 1 10.1 12H9a5 5 0 0 1-5-5V4h3V2zm0 4H6v1a3 3 0 0 0 3 3h.17A6 6 0 0 1 7 6zm11 0a6 6 0 0 1-2.17 4H15a3 3 0 0 0 3-3V6zm-9-2v2a4 4 0 1 0 8 0V4H9z" />
+              </svg>
+            </span>
+          ) : null}
+          {showAvatar ? (
+            <div className="rank-avatar">
+              {row.image ? (
+                <img src={row.image} alt={row.name} loading="lazy" />
+              ) : (
+                <div className="rank-avatar-fallback">{avatarInitial}</div>
+              )}
+            </div>
+          ) : null}
+        </div>
+        <div className="rank-main">
+          <div className="rank-name">{row.name}</div>
+          {row.meta ? <div className="rank-meta">{row.meta}</div> : null}
+        </div>
+        <div className="rank-metrics">
+          <div className="rank-value">{currencyFormatter.format(rowValue)}</div>
+          <div className="rank-trend up">{trendText}</div>
+        </div>
+      </article>
+    )
+  }
 
   useEffect(() => {
     if (!hasData || showIntro || isPaused) {
@@ -734,7 +785,7 @@ function App() {
             </div>
           </div>
 
-          <div className={`rank-grid${['vendedores', 'portabilidade', 'novo'].includes(current.id) ? ' vendors-grid' : ''}`}>
+          <div className={`rank-grid${['vendedores', 'portabilidade', 'novo', 'gerentes'].includes(current.id) ? ' vendors-grid' : ''}`}>
             {current.rows.length === 0 ? (
               <div className="empty-state">
                 {isBeforeStart
@@ -744,50 +795,7 @@ function App() {
                     : 'Aguardando dados da API...'}
               </div>
             ) : (
-              current.rows.map((row, index) => {
-                const share = totalValue > 0 ? Math.round((row.value / totalValue) * 100) : 0
-                const trendText = totalValue > 0 ? `${share}%` : null
-                const showAvatar = ['vendedores', 'portabilidade', 'novo'].includes(current.id)
-                const avatarInitial = row.name ? row.name.trim().charAt(0) : ''
-                const trophyClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''
-                return (
-                  <article
-                    key={`${current.id}-${row.name}`}
-                    className={`rank-row${trophyClass ? ' podium' : ''}${showAvatar ? ' with-avatar' : ''}`}
-                    style={{ '--delay': `${index * 80}ms` }}
-                  >
-                    <div className="rank-pos-wrap">
-                      <div className="rank-pos">{String(index + 1).padStart(2, '0')}</div>
-                      {trophyClass ? (
-                        <span className={`rank-trophy ${trophyClass}`} aria-hidden="true">
-                          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path d="M7 2h10v2h3v3a5 5 0 0 1-5 5h-1.1A6 6 0 0 1 13 14.92V17h3v2H8v-2h3v-2.08A6 6 0 0 1 10.1 12H9a5 5 0 0 1-5-5V4h3V2zm0 4H6v1a3 3 0 0 0 3 3h.17A6 6 0 0 1 7 6zm11 0a6 6 0 0 1-2.17 4H15a3 3 0 0 0 3-3V6zm-9-2v2a4 4 0 1 0 8 0V4H9z" />
-                          </svg>
-                        </span>
-                      ) : null}
-                      {showAvatar ? (
-                        <div className="rank-avatar">
-                          {row.image ? (
-                            <img src={row.image} alt={row.name} loading="lazy" />
-                          ) : (
-                            <div className="rank-avatar-fallback">{avatarInitial}</div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="rank-main">
-                      <div className="rank-name">{row.name}</div>
-                      {row.meta ? <div className="rank-meta">{row.meta}</div> : null}
-                    </div>
-                    <div className="rank-metrics">
-                      <div className="rank-value">{currencyFormatter.format(row.value)}</div>
-                      {trendText ? (
-                        <div className="rank-trend up">{trendText}</div>
-                      ) : null}
-                    </div>
-                  </article>
-                )
-              })
+              current.rows.map((row, index) => renderRow(row, index))
             )}
           </div>
 
