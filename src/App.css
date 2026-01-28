@@ -97,6 +97,11 @@
   justify-content: center;
   text-align: center;
   gap: 18px;
+  padding-top: 0;
+}
+
+.intro-content {
+  margin-top: -30px;
 }
 
 .intro-content {
