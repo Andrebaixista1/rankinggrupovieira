@@ -528,6 +528,7 @@ function App() {
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
   const [showMissingToast, setShowMissingToast] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(false)
@@ -600,7 +601,7 @@ function App() {
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
-  const canRotate = hasData && !isLoading
+  const canRotate = hasData && !isLoading && !isPaused && !showIntro
   const totalValue = current.rows.reduce((sum, row) => sum + (row.value || 0), 0)
   const isBeforeStart = now.getHours() < 9
   const hasMissingImages = rankings.some((ranking) =>
@@ -617,7 +618,7 @@ function App() {
   })
 
   useEffect(() => {
-    if (!hasData || showIntro) {
+    if (!hasData || showIntro || isPaused) {
       return undefined
     }
 
@@ -638,7 +639,7 @@ function App() {
     }, ROTATION_INTERVAL)
 
     return () => clearInterval(interval)
-  }, [fetchData, hasData, showIntro, rankings.length])
+  }, [fetchData, hasData, isPaused, showIntro, rankings.length])
 
   useEffect(() => {
     if (hasData) {
@@ -678,7 +679,23 @@ function App() {
     }, 10000)
 
     return () => clearTimeout(timer)
-  }, [shouldShowMissingToast])
+  }, [shouldShowMissingToast, current.id])
+
+  const handleNext = () => {
+    if (!hasData) return
+    setActiveIndex((prev) => (prev + 1) % rankings.length)
+    setCycleKey((prev) => prev + 1)
+  }
+
+  const handlePrev = () => {
+    if (!hasData) return
+    setActiveIndex((prev) => (prev - 1 + rankings.length) % rankings.length)
+    setCycleKey((prev) => prev + 1)
+  }
+
+  const handleTogglePause = () => {
+    setIsPaused((prev) => !prev)
+  }
 
   return (
     <div className="app">
@@ -782,7 +799,22 @@ function App() {
                 <div className="progress-bar paused" />
               )}
             </div>
-            <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido ao atraso da API.</p>
+            <div className="footer-row">
+              <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido ao atraso da API.</p>
+              {!showIntro ? (
+                <div className="nav-controls" aria-label="Controles do ranking">
+                  <button type="button" className="nav-btn" onClick={handlePrev} aria-label="Voltar ranking">
+                    ◀
+                  </button>
+                  <button type="button" className="nav-btn" onClick={handleTogglePause} aria-label="Pausar ou continuar">
+                    {isPaused ? '▶' : '⏸'}
+                  </button>
+                  <button type="button" className="nav-btn" onClick={handleNext} aria-label="Proximo ranking">
+                    ▶
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
         )}
