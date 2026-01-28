@@ -455,16 +455,6 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIntro(false)
-      setActiveIndex(0)
-      setCycleKey((prev) => prev + 1)
-    }, 5000)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
     const interval = setInterval(() => {
       setNow(new Date())
     }, 60 * 1000)
@@ -507,6 +497,18 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!showIntro) return undefined
+    const timer = setTimeout(() => {
+      setShowIntro(false)
+      setActiveIndex(0)
+      setCycleKey((prev) => prev + 1)
+      fetchData()
+    }, 5000)
+
+    return () => clearTimeout(timer)
+  }, [showIntro, fetchData])
+
+  useEffect(() => {
     fetchData()
   }, [fetchData])
 
@@ -522,15 +524,17 @@ function App() {
   })
 
   useEffect(() => {
-    if (isLoading || !hasData || showIntro) {
+    if (!hasData || showIntro) {
       return undefined
     }
 
     const interval = setInterval(() => {
+      fetchData()
       setActiveIndex((prev) => {
         const next = (prev + 1) % rankings.length
-        if (next === 0 && hasLoadedRef.current) {
-          fetchData()
+        if (next === 0) {
+          setShowIntro(true)
+          return prev
         }
         return next
       })
@@ -538,7 +542,7 @@ function App() {
     }, ROTATION_INTERVAL)
 
     return () => clearInterval(interval)
-  }, [fetchData, hasData, isLoading, rankings.length])
+  }, [fetchData, hasData, showIntro, rankings.length])
 
   useEffect(() => {
     if (hasData) {
@@ -651,7 +655,7 @@ function App() {
                 <div className="progress-bar paused" />
               )}
             </div>
-            <p className="footnote accent">Filtro utilizado no New Corban: Formalizado => Hoje; Os dados são atualizados a cada 10min via API</p>
+            <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido a delay da API</p>
           </div>
         </section>
         )}
