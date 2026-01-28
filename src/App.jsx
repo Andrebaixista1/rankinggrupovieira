@@ -60,7 +60,6 @@ const PORTABILIDADE_PRODUCTS = [
   'Refin da Port',
 ]
 const NOVO_PRODUCTS = [
-  'Cartão ativado',
   'Cartão com Saque',
   'Margem Livre',
   'Cartão sem Saque',
