@@ -363,6 +363,67 @@
   flex: 0 0 auto;
 }
 
+.toast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.25);
+  display: grid;
+  place-items: center;
+  animation: toastFadeIn 300ms ease both;
+}
+
+.toast-notify {
+  background: #f7d46a;
+  color: #3a2a00;
+  font-weight: 700;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(122, 86, 0, 0.25);
+  box-shadow: 0 18px 30px rgba(122, 86, 0, 0.25);
+  max-width: 420px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  animation: toastPop 300ms ease both;
+}
+
+.toast-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a5600;
+}
+
+.toast-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toastPop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .progress {
   width: 100%;
   height: 8px;

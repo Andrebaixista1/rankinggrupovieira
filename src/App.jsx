@@ -5,7 +5,7 @@ const baseRankings = [
   {
     id: 'vendedores',
     kicker: 'VENDAS',
-    title: 'Ranking TOP 10 Vendedores',
+    title: 'Ranking TOP 10 Vendedor',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
     limit: 10,
@@ -14,7 +14,7 @@ const baseRankings = [
   {
     id: 'supervisores',
     kicker: 'OPERACAO',
-    title: 'Ranking TOP 5 Supervisores',
+    title: 'Ranking TOP 5 Supervisor',
     subtitle: 'Hoje',
     description: 'Resultado do dia atual.',
     limit: 5,
@@ -29,12 +29,42 @@ const baseRankings = [
     limit: 5,
     rows: [],
   },
+  {
+    id: 'portabilidade',
+    kicker: 'VENDAS',
+    title: 'Ranking TOP 10 Portabilidade',
+    subtitle: 'Hoje',
+    description: 'Resultado do dia atual.',
+    limit: 10,
+    rows: [],
+  },
+  {
+    id: 'novo',
+    kicker: 'VENDAS',
+    title: 'Ranking TOP 10 Novo',
+    subtitle: 'Hoje',
+    description: 'Resultado do dia atual.',
+    limit: 10,
+    rows: [],
+  },
 ]
 
 const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
 const PRIMARY_API_URL = '/api/ranking'
 const ROTATION_INTERVAL = 30000
 const RETRY_INTERVAL_NO_DATA = 5000
+const PORTABILIDADE_PRODUCTS = [
+  'Portabilidade',
+  'Refinanciamento',
+  'Port com Refin',
+  'Refin da Port',
+]
+const NOVO_PRODUCTS = [
+  'Cartão ativado',
+  'Cartão com Saque',
+  'Margem Livre',
+  'Cartão sem Saque',
+]
 
 function buildApiUrl(raw) {
   if (!raw) return ''
@@ -83,6 +113,15 @@ function formatName(value) {
   return normalized ? normalized.toUpperCase() : ''
 }
 
+function normalizeKey(value) {
+  const normalized = normalizeMeta(value)
+  if (!normalized) return ''
+  return normalized
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+}
+
 function formatPersonName(value) {
   if (!value) return ''
   const cleaned = String(value).replace(/\s+/g, ' ').trim()
@@ -106,6 +145,13 @@ function formatVendorNameWithCompany(value) {
     return name ? `${name} / ${company}` : company
   }
   return name
+}
+
+function formatVendorNameOnly(value) {
+  if (!value) return ''
+  const raw = String(value)
+  const [before] = raw.split('/')
+  return formatPersonName(before)
 }
 
 function formatAfterColon(value) {
@@ -204,6 +250,22 @@ function resolveRowKey(rows, candidates) {
   return ''
 }
 
+function buildProductSet(items) {
+  return new Set(items.map((item) => normalizeKey(item)))
+}
+
+const PORTABILIDADE_SET = buildProductSet(PORTABILIDADE_PRODUCTS)
+const NOVO_SET = buildProductSet(NOVO_PRODUCTS)
+
+function filterRowsByProduct(rows, productKey, allowedSet) {
+  if (!Array.isArray(rows) || !productKey || !allowedSet) return []
+  return rows.filter((row) => {
+    const value = row?.[productKey]
+    if (!value) return false
+    return allowedSet.has(normalizeKey(value))
+  })
+}
+
 function collectArrays(payload, bucket = []) {
   if (Array.isArray(payload)) {
     bucket.push(payload)
@@ -296,24 +358,11 @@ function extractRankingLists(payload) {
   return { vendedores, equipes, franquias }
 }
 
-function assembleRankings({ vendedores, supervisores, gerentes }) {
-  const addBadge = (list) =>
-    list
-
-  return [
-    {
-      ...baseRankings[0],
-      rows: addBadge(vendedores.slice(0, baseRankings[0].limit)),
-    },
-    {
-      ...baseRankings[1],
-      rows: addBadge(supervisores.slice(0, baseRankings[1].limit)),
-    },
-    {
-      ...baseRankings[2],
-      rows: addBadge(gerentes.slice(0, baseRankings[2].limit)),
-    },
-  ]
+function assembleRankings(rowsById) {
+  return baseRankings.map((ranking) => {
+    const rows = (rowsById?.[ranking.id] || []).slice(0, ranking.limit)
+    return { ...ranking, rows }
+  })
 }
 
 function buildRankingsFromRows(rows) {
@@ -342,6 +391,12 @@ function buildRankingsFromRows(rows) {
     'total',
     'valor_total',
   ]) || 'soma_valor_referencia'
+  const productKey = resolveRowKey(safeRows, [
+    'produto_nome',
+    'produto',
+    'nome_produto',
+    'produtoName',
+  ]) || 'produto_nome'
   const imageKey = resolveRowKey(safeRows, [
     'imagem_perfil',
     'imagemPerfil',
@@ -373,7 +428,31 @@ function buildRankingsFromRows(rows) {
     meta: formatCountLabel(item.count),
   }))
 
-  return assembleRankings({ vendedores, supervisores, gerentes })
+  const portRows = filterRowsByProduct(safeRows, productKey, PORTABILIDADE_SET)
+  const portabilidade = buildGroups(portRows, vendorKey, equipeKey, {
+    multiLabel: 'VARIAS EQUIPES',
+    nameFormatter: formatVendorNameOnly,
+    metaFormatter: formatName,
+    valueKey,
+    imageKey,
+  })
+
+  const novoRows = filterRowsByProduct(safeRows, productKey, NOVO_SET)
+  const novo = buildGroups(novoRows, vendorKey, equipeKey, {
+    multiLabel: 'VARIAS EQUIPES',
+    nameFormatter: formatVendorNameOnly,
+    metaFormatter: formatName,
+    valueKey,
+    imageKey,
+  })
+
+  return assembleRankings({
+    vendedores,
+    portabilidade,
+    novo,
+    supervisores,
+    gerentes,
+  })
 }
 
 function buildRankingsFromLists(lists) {
@@ -432,7 +511,13 @@ function buildRankingsFromLists(lists) {
     count: true,
   })
 
-  return assembleRankings({ vendedores, supervisores, gerentes })
+  return assembleRankings({
+    vendedores,
+    portabilidade: [],
+    novo: [],
+    supervisores,
+    gerentes,
+  })
 }
 
 function App() {
@@ -443,9 +528,11 @@ function App() {
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
+  const [showMissingToast, setShowMissingToast] = useState(false)
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(false)
+  const reloadPendingRef = useRef(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -517,6 +604,13 @@ function App() {
   const canRotate = hasData && !isLoading
   const totalValue = current.rows.reduce((sum, row) => sum + (row.value || 0), 0)
   const isBeforeStart = now.getHours() < 9
+  const hasMissingImages = rankings.some((ranking) =>
+    ['vendedores', 'portabilidade', 'novo'].includes(ranking.id)
+    && ranking.rows.some((row) => !row.image),
+  )
+  const shouldShowMissingToast = hasMissingImages
+    && ['vendedores', 'portabilidade', 'novo'].includes(current.id)
+    && !showIntro
   const currencyFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -533,7 +627,10 @@ function App() {
       setActiveIndex((prev) => {
         const next = (prev + 1) % rankings.length
         if (next === 0) {
-          setShowIntro(true)
+          if (!reloadPendingRef.current) {
+            reloadPendingRef.current = true
+            window.location.reload()
+          }
           return prev
         }
         return next
@@ -571,8 +668,33 @@ function App() {
     return () => clearTimeout(timer)
   }, [hasData, hasTimeout])
 
+  useEffect(() => {
+    if (!shouldShowMissingToast) {
+      setShowMissingToast(false)
+      return undefined
+    }
+    setShowMissingToast(true)
+    const timer = setTimeout(() => {
+      setShowMissingToast(false)
+    }, 10000)
+
+    return () => clearTimeout(timer)
+  }, [shouldShowMissingToast])
+
   return (
     <div className="app">
+      {showMissingToast ? (
+        <div className="toast-overlay" role="status" aria-live="polite">
+          <div className="toast-notify">
+            <span className="toast-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 2c-.5 0-.95.27-1.18.71l-8.5 16.5A1.33 1.33 0 0 0 3.5 21h17a1.33 1.33 0 0 0 1.18-1.79l-8.5-16.5A1.33 1.33 0 0 0 12 2zm0 5.25c.55 0 1 .45 1 1v6.5a1 1 0 0 1-2 0v-6.5c0-.55.45-1 1-1zm0 11.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z" />
+              </svg>
+            </span>
+            Ainda há vendedores sem foto no New Corban. Atualize sua imagem para aparecer no ranking.
+          </div>
+        </div>
+      ) : null}
       <main className="board">
         {showIntro ? (
           <section className="rank-card intro-screen has-gradient">
@@ -596,7 +718,7 @@ function App() {
             </div>
           </div>
 
-          <div className={`rank-grid${current.id === 'vendedores' ? ' vendors-grid' : ''}`}>
+          <div className={`rank-grid${['vendedores', 'portabilidade', 'novo'].includes(current.id) ? ' vendors-grid' : ''}`}>
             {current.rows.length === 0 ? (
               <div className="empty-state">
                 {isBeforeStart
@@ -609,7 +731,7 @@ function App() {
               current.rows.map((row, index) => {
                 const share = totalValue > 0 ? Math.round((row.value / totalValue) * 100) : 0
                 const trendText = totalValue > 0 ? `${share}%` : null
-                const showAvatar = current.id === 'vendedores'
+                const showAvatar = ['vendedores', 'portabilidade', 'novo'].includes(current.id)
                 const avatarInitial = row.name ? row.name.trim().charAt(0) : ''
                 const trophyClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''
                 return (
@@ -661,7 +783,7 @@ function App() {
                 <div className="progress-bar paused" />
               )}
             </div>
-            <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido a delay da API</p>
+            <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido ao atraso da API.</p>
           </div>
         </section>
         )}
