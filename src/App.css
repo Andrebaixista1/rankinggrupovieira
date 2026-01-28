@@ -148,6 +148,7 @@
   letter-spacing: 0.3em;
   font-size: 0.8rem;
   color: #ffffff;
+  font-weight: 700;
   margin: 0 0 8px;
 }
 
@@ -156,7 +157,7 @@
   font-size: clamp(2.4rem, 3.3vw, 3.2rem);
   font-family: var(--display-font);
   font-weight: 800;
-  color: #1c1c1c;
+  color: #ffffff;
 }
 
 .rank-status {
