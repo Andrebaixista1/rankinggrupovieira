@@ -683,7 +683,100 @@
   }
 }
 
-@media (max-height: 760px) {
+@media (max-height: 720px) {
+  .rank-card {
+    padding: 18px 18px 14px;
+  }
+
+  .rank-head {
+    gap: 16px;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    margin-bottom: 6px;
+    letter-spacing: 0.24em;
+  }
+
+  .rank-head h1 {
+    font-size: clamp(1.7rem, 2.5vw, 2.2rem);
+  }
+
+  .brand-logo {
+    width: 60px;
+  }
+
+  .rank-grid {
+    margin-top: 14px;
+    gap: 8px;
+    grid-auto-rows: minmax(68px, auto);
+  }
+
+  .rank-grid.vendors-grid {
+    grid-template-rows: repeat(5, minmax(68px, 1fr));
+    column-gap: 10px;
+    row-gap: 8px;
+  }
+
+  .rank-row {
+    padding: 8px 10px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+
+  .rank-row.with-avatar {
+    grid-template-columns: 120px 1fr auto auto;
+  }
+
+  .rank-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .rank-avatar-fallback {
+    font-size: 1rem;
+  }
+
+  .rank-pos {
+    width: clamp(32px, 4.4vh, 40px);
+    height: clamp(32px, 4.4vh, 40px);
+    font-size: 0.9rem;
+    border-radius: 12px;
+  }
+
+  .rank-name {
+    font-size: clamp(0.9rem, 1.1vw, 1rem);
+  }
+
+  .rank-meta {
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+
+  .rank-value {
+    font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+  }
+
+  .rank-trend {
+    margin-top: 2px;
+    font-size: 0.85rem;
+  }
+
+  .rank-footer {
+    margin-top: 10px;
+    gap: 8px;
+  }
+
+  .progress {
+    height: 6px;
+  }
+
+  .footnote {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-height: 640px) {
   .rank-grid {
     overflow-y: auto;
     padding-right: 6px;
