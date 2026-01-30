@@ -530,7 +530,6 @@ function App() {
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
-  const [showMissingToast, setShowMissingToast] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
@@ -611,13 +610,6 @@ function App() {
   )
   const safeTotalValue = Number.isFinite(totalValue) ? totalValue : 0
   const isBeforeStart = now.getHours() < 9
-  const hasMissingImages = rankings.some((ranking) =>
-    ['vendedores', 'portabilidade', 'novo'].includes(ranking.id)
-    && ranking.rows.some((row) => !row.image),
-  )
-  const shouldShowMissingToast = hasMissingImages
-    && ['vendedores', 'portabilidade', 'novo'].includes(current.id)
-    && !showIntro
   const currencyFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -719,19 +711,6 @@ function App() {
     return () => clearTimeout(timer)
   }, [hasData, hasTimeout])
 
-  useEffect(() => {
-    if (!shouldShowMissingToast) {
-      setShowMissingToast(false)
-      return undefined
-    }
-    setShowMissingToast(true)
-    const timer = setTimeout(() => {
-      setShowMissingToast(false)
-    }, 10000)
-
-    return () => clearTimeout(timer)
-  }, [shouldShowMissingToast, current.id])
-
   const handleNext = () => {
     if (!hasData) return
     setActiveIndex((prev) => (prev + 1) % rankings.length)
@@ -750,18 +729,6 @@ function App() {
 
   return (
     <div className="app">
-      {showMissingToast ? (
-        <div className="toast-overlay" role="status" aria-live="polite">
-          <div className="toast-notify">
-            <span className="toast-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 2c-.5 0-.95.27-1.18.71l-8.5 16.5A1.33 1.33 0 0 0 3.5 21h17a1.33 1.33 0 0 0 1.18-1.79l-8.5-16.5A1.33 1.33 0 0 0 12 2zm0 5.25c.55 0 1 .45 1 1v6.5a1 1 0 0 1-2 0v-6.5c0-.55.45-1 1-1zm0 11.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z" />
-              </svg>
-            </span>
-            Ainda há vendedores sem foto no New Corban. Atualize sua imagem para aparecer no ranking.
-          </div>
-        </div>
-      ) : null}
       <main className="board">
         {showIntro ? (
           <section className="rank-card intro-screen has-gradient">
