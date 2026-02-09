@@ -121,6 +121,12 @@ function normalizeKey(value) {
     .toUpperCase()
 }
 
+const SUPERVISOR_NAME_CORRECTIONS = new Map(
+  [
+    ['FREIRAS DO EVERTON', 'EVERTON NUNES'],
+  ].map(([from, to]) => [normalizeKey(from), to]),
+)
+
 function formatPersonName(value) {
   if (!value) return ''
   const cleaned = String(value).replace(/\s+/g, ' ').trim()
@@ -158,6 +164,8 @@ function formatAfterColon(value) {
   const raw = String(value)
   const parts = raw.split(':')
   const tail = parts.length > 1 ? parts.slice(1).join(':') : raw
+  const corrected = SUPERVISOR_NAME_CORRECTIONS.get(normalizeKey(tail))
+  if (corrected) return corrected
   return formatName(tail)
 }
 
