@@ -1,9 +1,14 @@
 {
+  "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": null,
+  "env": {
+    "UPSTREAM_API_BASE": "https://85.31.61.242:8003",
+    "UPSTREAM_API_BASE_FALLBACK": "http://85.31.61.242:3066"
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "http://85.31.61.242:3066/api/$1" },
+    { "source": "/api/ranking", "destination": "/api/ranking.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
