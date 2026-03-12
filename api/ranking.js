@@ -1,8 +1,8 @@
 const BASES = [
   process.env.UPSTREAM_API_BASE,
   process.env.UPSTREAM_API_BASE_FALLBACK,
-  'https://85.31.61.242:8003',
   'http://85.31.61.242:3066',
+  'https://85.31.61.242:8003',
 ]
   .map((v) => String(v || '').trim().replace(/\/+$/, ''))
   .filter(Boolean)
@@ -24,7 +24,8 @@ export default async function handler(req, res) {
   }
 
   const query = req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
-  let upstreamResponse = null
+  let bestPayload = null
+  let bestStatus = 200
   let lastError = null
   let lastTarget = null
 
@@ -36,23 +37,50 @@ export default async function handler(req, res) {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
+      let upstreamResponse
+      let rawBody = ''
       try {
         upstreamResponse = await fetch(targetUrl, {
           method: 'GET',
           headers: { Accept: 'application/json' },
           signal: controller.signal,
         })
+        rawBody = await upstreamResponse.text()
       } finally {
         clearTimeout(timeout)
       }
 
-      if (upstreamResponse) break
+      if (!upstreamResponse || !upstreamResponse.ok) {
+        lastError = new Error(`Upstream status ${upstreamResponse ? upstreamResponse.status : 'unknown'}`)
+        continue
+      }
+
+      let payload
+      try {
+        payload = JSON.parse(rawBody)
+      } catch {
+        continue
+      }
+
+      const normalized = normalizePayload(payload)
+      const hasProduto = payloadHasProduto(normalized)
+
+      if (!bestPayload) {
+        bestPayload = normalized
+        bestStatus = upstreamResponse.status
+      }
+
+      // Se encontrou payload com produto_nome, para aqui.
+      if (hasProduto) {
+        res.status(upstreamResponse.status).json(normalized)
+        return
+      }
     } catch (error) {
       lastError = error
     }
   }
 
-  if (!upstreamResponse) {
+  if (!bestPayload) {
     res.status(502).json({
       ok: false,
       error: String(lastError?.message || 'Upstream request failed'),
@@ -62,14 +90,33 @@ export default async function handler(req, res) {
     return
   }
 
-  const body = await upstreamResponse.text()
-  res.status(upstreamResponse.status)
-  res.setHeader('Content-Type', upstreamResponse.headers.get('content-type') || 'application/json; charset=utf-8')
-  res.send(body)
+  // Fallback: retorna melhor payload mesmo sem produto, para não quebrar o front.
+  res.status(bestStatus).json(bestPayload)
 }
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS')
+}
+
+function normalizePayload(payload) {
+  if (Array.isArray(payload)) return payload
+  if (payload && typeof payload === 'object') {
+    if (Array.isArray(payload.rows)) return payload.rows
+    if (Array.isArray(payload.data)) return payload.data
+  }
+  return payload
+}
+
+function payloadHasProduto(payload) {
+  if (!Array.isArray(payload)) return false
+  return payload.some((row) => {
+    if (!row || typeof row !== 'object') return false
+    return (
+      Object.prototype.hasOwnProperty.call(row, 'produto_nome') ||
+      Object.prototype.hasOwnProperty.call(row, 'produto') ||
+      Object.prototype.hasOwnProperty.call(row, 'produtoNome')
+    )
+  })
 }
