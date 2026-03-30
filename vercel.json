@@ -5,10 +5,12 @@
   "framework": null,
   "env": {
     "UPSTREAM_API_BASE": "http://85.31.61.242:3066",
-    "UPSTREAM_API_BASE_FALLBACK": "https://85.31.61.242:8003"
+    "UPSTREAM_API_BASE_FALLBACK": "https://85.31.61.242:8003",
+    "UPSTREAM_METRICS_API_BASE": "http://85.31.61.242:3099"
   },
   "rewrites": [
     { "source": "/api/ranking", "destination": "/api/ranking.js" },
+    { "source": "/api/update-metrics", "destination": "/api/update-metrics.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

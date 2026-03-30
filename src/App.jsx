@@ -51,6 +51,7 @@ const baseRankings = [
 
 const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
 const PRIMARY_API_URL = '/api/ranking'
+const UPDATE_METRICS_API_URL = '/api/update-metrics'
 const ROTATION_INTERVAL = 30000
 const RETRY_INTERVAL_NO_DATA = 5000
 const PORTABILIDADE_PRODUCTS = [
@@ -173,6 +174,95 @@ function formatCountLabel(value) {
   const count = Math.round(parseNumericValue(value))
   if (!count) return '0 propostas'
   return count === 1 ? '1 proposta' : `${count} propostas`
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return '0s'
+  }
+
+  const totalSeconds = Math.max(1, Math.round(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  if (!minutes) {
+    return `${seconds}s`
+  }
+
+  if (!seconds) {
+    return `${minutes}m`
+  }
+
+  return `${minutes}m ${seconds}s`
+}
+
+function buildPayloadSignature(rankings) {
+  return JSON.stringify(
+    rankings.map((ranking) => ({
+      id: ranking.id,
+      rows: ranking.rows.map((row) => ({
+        name: normalizeMeta(row.name),
+        meta: normalizeMeta(row.meta),
+        value: Number.isFinite(row.value) ? row.value : 0,
+        image: normalizeMeta(row.image),
+      })),
+    })),
+  )
+}
+
+function findDeepFieldValue(payload, keys, seen = new Set()) {
+  if (!payload || typeof payload !== 'object' || seen.has(payload)) return ''
+  seen.add(payload)
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const found = findDeepFieldValue(item, keys, seen)
+      if (found) return found
+    }
+    return ''
+  }
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(payload, key) && hasRowValue(payload[key])) {
+      return payload[key]
+    }
+  }
+
+  for (const value of Object.values(payload)) {
+    const found = findDeepFieldValue(value, keys, seen)
+    if (found) return found
+  }
+
+  return ''
+}
+
+function formatDateTimeLabel(value) {
+  const normalized = normalizeMeta(value)
+  if (!normalized) return 'Sem data'
+
+  const parsed = new Date(normalized)
+  if (Number.isNaN(parsed.getTime())) {
+    return normalized
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    hour12: false,
+  }).format(parsed)
+}
+
+function extractUpdateMetrics(payload) {
+  const averageLabel = normalizeMeta(
+    payload?.combined?.avg_of_averages_fmt
+    || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt']),
+  ) || 'Sem dado'
+  const lastUpdateLabel = formatDateTimeLabel(
+    payload?.generated_at
+    || findDeepFieldValue(payload, ['generated_at', 'cenerated_at', 'generatedAt']),
+  )
+
+  return { averageLabel, lastUpdateLabel }
 }
 
 function parseNumericValue(value) {
@@ -538,7 +628,12 @@ function App() {
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
+  const [showUpdateScreen, setShowUpdateScreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  const [updateMetrics, setUpdateMetrics] = useState({
+    averageLabel: 'Carregando...',
+    lastUpdateLabel: 'Carregando...',
+  })
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(false)
@@ -565,6 +660,8 @@ function App() {
     try {
       setIsLoading(true)
       let data
+      let metricsData = null
+      const metricsPromise = fetchJson(UPDATE_METRICS_API_URL).catch(() => null)
       try {
         data = await fetchJson(PRIMARY_API_URL)
       } catch (error) {
@@ -579,8 +676,10 @@ function App() {
       const updated = looksLikeRawRows(rowsPayload)
         ? buildRankingsFromRows(rowsPayload)
         : (lists ? buildRankingsFromLists(lists) : buildRankingsFromRows(rowsPayload))
+      metricsData = await metricsPromise
       if (isMountedRef.current) {
         setRankings(updated)
+        setUpdateMetrics(extractUpdateMetrics(metricsData || data))
         hasLoadedRef.current = true
       }
     } catch (error) {
@@ -597,13 +696,23 @@ function App() {
     if (!showIntro) return undefined
     const timer = setTimeout(() => {
       setShowIntro(false)
+      setShowUpdateScreen(true)
       setActiveIndex(0)
       setCycleKey((prev) => prev + 1)
-      fetchData()
     }, 5000)
 
     return () => clearTimeout(timer)
   }, [showIntro, fetchData])
+
+  useEffect(() => {
+    if (!showUpdateScreen) return undefined
+    const timer = setTimeout(() => {
+      setShowUpdateScreen(false)
+      fetchData()
+    }, 20000)
+
+    return () => clearTimeout(timer)
+  }, [showUpdateScreen, fetchData])
 
   useEffect(() => {
     fetchData()
@@ -611,7 +720,7 @@ function App() {
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
-  const canRotate = hasData && !isLoading && !isPaused && !showIntro
+  const canRotate = hasData && !isLoading && !isPaused && !showIntro && !showUpdateScreen
   const totalValue = current.rows.reduce(
     (sum, row) => sum + (Number.isFinite(row.value) ? row.value : 0),
     0,
@@ -748,6 +857,20 @@ function App() {
               <p className="intro-subtitle">Preparando os rankings...</p>
             </div>
           </section>
+        ) : showUpdateScreen ? (
+          <section className="rank-card intro-screen has-gradient update-screen">
+            <div className="intro-content update-content">
+              <p className="intro-title">Indicadores de atualizacao</p>
+              <div className="update-metric">
+                <span className="update-metric-label">Tempo medio</span>
+                <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>
+              </div>
+              <div className="update-metric">
+                <span className="update-metric-label">Ultima atualizacao</span>
+                <strong className="update-metric-value">{updateMetrics.lastUpdateLabel}</strong>
+              </div>
+            </div>
+          </section>
         ) : (
         <section key={current.id} className="rank-card has-gradient">
           <div className="rank-head">
@@ -807,3 +930,4 @@ function App() {
 }
 
 export default App
+
