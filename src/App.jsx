@@ -86,6 +86,8 @@ const FALLBACK_API_URL = ENV_API_URL && ENV_API_URL !== PRIMARY_API_URL
   ? ENV_API_URL
   : ''
 const UPDATE_METRICS_TIMEOUT_MS = 7000
+const UPDATE_METRICS_CACHE_KEY = 'rankinggrupovieira:update-metrics-cache'
+const DEFAULT_UPDATE_METRICS = { averageLabel: '--:--', isReady: false }
 
 async function fetchJson(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
@@ -119,9 +121,43 @@ function withTimeout(promise, timeoutMs) {
   })
 }
 
+function loadCachedUpdateMetrics() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_UPDATE_METRICS
+  }
+
+  try {
+    const raw = window.localStorage.getItem(UPDATE_METRICS_CACHE_KEY)
+    if (!raw) return DEFAULT_UPDATE_METRICS
+    const parsed = JSON.parse(raw)
+    const averageLabel = normalizeMeta(parsed?.averageLabel)
+    if (!isRealUpdateMetricLabel(averageLabel)) {
+      return DEFAULT_UPDATE_METRICS
+    }
+    return { averageLabel, isReady: true }
+  } catch {
+    return DEFAULT_UPDATE_METRICS
+  }
+}
+
+function saveCachedUpdateMetrics(metrics) {
+  if (typeof window === 'undefined') return
+  if (!metrics?.isReady || !isRealUpdateMetricLabel(metrics.averageLabel)) return
+  try {
+    window.localStorage.setItem(UPDATE_METRICS_CACHE_KEY, JSON.stringify(metrics))
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 function normalizeMeta(value) {
   if (!value) return ''
   return String(value).replace(/\s+/g, ' ').trim()
+}
+
+function isRealUpdateMetricLabel(value) {
+  const normalized = normalizeMeta(value)
+  return Boolean(normalized && normalized !== '00:00' && normalized !== '--:--')
 }
 
 function formatName(value) {
@@ -192,40 +228,6 @@ function formatCountLabel(value) {
   return count === 1 ? '1 proposta' : `${count} propostas`
 }
 
-function formatDuration(ms) {
-  if (!Number.isFinite(ms) || ms <= 0) {
-    return '0s'
-  }
-
-  const totalSeconds = Math.max(1, Math.round(ms / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-
-  if (!minutes) {
-    return `${seconds}s`
-  }
-
-  if (!seconds) {
-    return `${minutes}m`
-  }
-
-  return `${minutes}m ${seconds}s`
-}
-
-function buildPayloadSignature(rankings) {
-  return JSON.stringify(
-    rankings.map((ranking) => ({
-      id: ranking.id,
-      rows: ranking.rows.map((row) => ({
-        name: normalizeMeta(row.name),
-        meta: normalizeMeta(row.meta),
-        value: Number.isFinite(row.value) ? row.value : 0,
-        image: normalizeMeta(row.image),
-      })),
-    })),
-  )
-}
-
 function findDeepFieldValue(payload, keys, seen = new Set()) {
   if (!payload || typeof payload !== 'object' || seen.has(payload)) return ''
   seen.add(payload)
@@ -256,9 +258,13 @@ function extractUpdateMetrics(payload) {
   const averageLabel = normalizeMeta(
     payload?.combined?.avg_of_averages_fmt
     || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt']),
-  ) || '00:00'
+  )
 
-  return { averageLabel }
+  if (!isRealUpdateMetricLabel(averageLabel)) {
+    return DEFAULT_UPDATE_METRICS
+  }
+
+  return { averageLabel, isReady: true }
 }
 
 function parseNumericValue(value) {
@@ -626,9 +632,7 @@ function App() {
   const [showIntro, setShowIntro] = useState(true)
   const [showUpdateScreen, setShowUpdateScreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  const [updateMetrics, setUpdateMetrics] = useState({
-    averageLabel: '00:00',
-  })
+  const [updateMetrics, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
@@ -680,10 +684,19 @@ function App() {
         }
         const metricsData = await metricsPromise
         if (isMountedRef.current) {
-          setUpdateMetrics(extractUpdateMetrics(metricsData || data))
+          const nextMetrics = extractUpdateMetrics(metricsData || data)
+          setUpdateMetrics(() => {
+            if (nextMetrics.isReady) {
+              saveCachedUpdateMetrics(nextMetrics)
+            }
+            return nextMetrics
+          })
+          return nextMetrics.isReady
         }
+        return false
       } catch (error) {
         console.error('Falha ao carregar ranking:', error)
+        return false
       } finally {
         if (isMountedRef.current) {
           setIsLoading(false)
@@ -714,8 +727,12 @@ function App() {
     let timerId = null
 
     const startCountdown = async () => {
-      await fetchData()
+      const metricsReady = await fetchData()
       if (cancelled) return
+      if (!metricsReady) {
+        timerId = setTimeout(startCountdown, RETRY_INTERVAL_NO_DATA)
+        return
+      }
       timerId = setTimeout(() => {
         setShowUpdateScreen(false)
         fetchData()

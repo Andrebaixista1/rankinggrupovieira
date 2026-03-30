@@ -7,6 +7,7 @@ const BASES = [
 
 const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '8000', 10)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
+let cachedMetricsPayload = null
 
 export default async function handler(req, res) {
   setCors(res)
@@ -27,20 +28,34 @@ export default async function handler(req, res) {
 
   const successful = candidates
     .filter((entry) => entry.status === 'fulfilled')
-    .map((entry) => entry.value)
+    .map((entry) => normalizeMetricsCandidate(entry.value))
 
   const fallbackCandidate = successful[0]
   if (fallbackCandidate) {
+    if (fallbackCandidate.isRealData) {
+      cachedMetricsPayload = fallbackCandidate.payload
+    }
     res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
     return
   }
 
   const lastError = candidates.find((entry) => entry.status === 'rejected')?.reason
+  if (cachedMetricsPayload) {
+    res.status(200).json({
+      ...cachedMetricsPayload,
+      fallback: true,
+      cached: true,
+      error: String(lastError?.message || 'Upstream request failed'),
+      upstreams: BASES,
+    })
+    return
+  }
+
   res.status(200).json({
     ok: false,
     fallback: true,
     combined: {
-      avg_of_averages_fmt: 'Sem dado',
+      avg_of_averages_fmt: '--:--',
     },
     generated_at: new Date().toISOString(),
     error: String(lastError?.message || 'Upstream request failed'),
@@ -74,11 +89,70 @@ async function fetchMetricsCandidate(base) {
 
     return {
       status: response.status,
-      payload,
+      payload: normalizeMetricsPayload(payload),
     }
   } finally {
     clearTimeout(timeout)
   }
+}
+
+function normalizeMetricsCandidate(candidate) {
+  if (!candidate || typeof candidate !== 'object') return candidate
+  const isRealData = isRealMetricsPayload(candidate.payload)
+  return {
+    ...candidate,
+    isRealData,
+    payload: isRealData ? candidate.payload : normalizeMetricsPayload(candidate.payload),
+  }
+}
+
+function normalizeMetricsPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      ok: false,
+      combined: {
+        avg_of_averages_fmt: '--:--',
+      },
+    }
+  }
+
+  const label = getAverageLabel(payload)
+  if (isRealAverageLabel(label)) {
+    return payload
+  }
+
+  const nextPayload = {
+    ...payload,
+    combined: {
+      ...(payload.combined && typeof payload.combined === 'object' ? payload.combined : {}),
+      avg_of_averages_fmt: '--:--',
+    },
+  }
+
+  if ('avg_of_averages_fmt' in nextPayload) {
+    nextPayload.avg_of_averages_fmt = '--:--'
+  }
+
+  return nextPayload
+}
+
+function getAverageLabel(payload) {
+  return String(
+    payload?.combined?.avg_of_averages_fmt
+    || payload?.avg_of_averages_fmt
+    || payload?.avgOfAveragesFmt
+    || payload?.media_total_fmt
+    || '',
+  ).trim()
+}
+
+function isRealAverageLabel(value) {
+  const normalized = String(value || '').trim()
+  return Boolean(normalized && normalized !== '00:00' && normalized !== '--:--')
+}
+
+function isRealMetricsPayload(payload) {
+  return isRealAverageLabel(getAverageLabel(payload))
 }
 
 function setCors(res) {
