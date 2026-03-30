@@ -236,33 +236,13 @@ function findDeepFieldValue(payload, keys, seen = new Set()) {
   return ''
 }
 
-function formatDateTimeLabel(value) {
-  const normalized = normalizeMeta(value)
-  if (!normalized) return 'Sem data'
-
-  const parsed = new Date(normalized)
-  if (Number.isNaN(parsed.getTime())) {
-    return normalized
-  }
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    hour12: false,
-  }).format(parsed)
-}
-
 function extractUpdateMetrics(payload) {
   const averageLabel = normalizeMeta(
     payload?.combined?.avg_of_averages_fmt
     || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt']),
   ) || 'Sem dado'
-  const lastUpdateLabel = formatDateTimeLabel(
-    payload?.generated_at
-    || findDeepFieldValue(payload, ['generated_at', 'cenerated_at', 'generatedAt']),
-  )
 
-  return { averageLabel, lastUpdateLabel }
+  return { averageLabel }
 }
 
 function parseNumericValue(value) {
@@ -632,7 +612,6 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [updateMetrics, setUpdateMetrics] = useState({
     averageLabel: 'Carregando...',
-    lastUpdateLabel: 'Carregando...',
   })
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
@@ -864,10 +843,6 @@ function App() {
               <div className="update-metric">
                 <span className="update-metric-label">Tempo medio</span>
                 <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>
-              </div>
-              <div className="update-metric">
-                <span className="update-metric-label">Ultima atualizacao</span>
-                <strong className="update-metric-value">{updateMetrics.lastUpdateLabel}</strong>
               </div>
             </div>
           </section>
