@@ -85,6 +85,7 @@ function buildRequestUrl(baseUrl) {
 const FALLBACK_API_URL = ENV_API_URL && ENV_API_URL !== PRIMARY_API_URL
   ? ENV_API_URL
   : ''
+const UPDATE_METRICS_TIMEOUT_MS = 7000
 
 async function fetchJson(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
@@ -101,6 +102,21 @@ async function fetchJson(baseUrl) {
   } catch {
     throw new Error('Resposta da API nao e JSON valido')
   }
+}
+
+function withTimeout(promise, timeoutMs) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs)
+    promise
+      .then((value) => {
+        clearTimeout(timer)
+        resolve(value)
+      })
+      .catch(() => {
+        clearTimeout(timer)
+        resolve(null)
+      })
+  })
 }
 
 function normalizeMeta(value) {
@@ -240,7 +256,7 @@ function extractUpdateMetrics(payload) {
   const averageLabel = normalizeMeta(
     payload?.combined?.avg_of_averages_fmt
     || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt']),
-  ) || 'Sem dado'
+  ) || '00:00'
 
   return { averageLabel }
 }
@@ -611,11 +627,11 @@ function App() {
   const [showUpdateScreen, setShowUpdateScreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [updateMetrics, setUpdateMetrics] = useState({
-    averageLabel: 'Carregando...',
+    averageLabel: '00:00',
   })
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
-  const fetchInFlightRef = useRef(false)
+  const fetchInFlightRef = useRef(null)
   const reloadPendingRef = useRef(false)
 
   useEffect(() => {
@@ -633,42 +649,51 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
-  const fetchData = useCallback(async () => {
-    if (fetchInFlightRef.current) return
-    fetchInFlightRef.current = true
-    try {
-      setIsLoading(true)
-      let data
-      let metricsData = null
-      const metricsPromise = fetchJson(UPDATE_METRICS_API_URL).catch(() => null)
+  const fetchData = useCallback(() => {
+    if (fetchInFlightRef.current) return fetchInFlightRef.current
+
+    const request = (async () => {
       try {
-        data = await fetchJson(PRIMARY_API_URL)
-      } catch (error) {
-        if (FALLBACK_API_URL && FALLBACK_API_URL !== PRIMARY_API_URL) {
-          data = await fetchJson(FALLBACK_API_URL)
-        } else {
-          throw error
+        setIsLoading(true)
+        let data
+        const metricsPromise = withTimeout(
+          fetchJson(UPDATE_METRICS_API_URL),
+          UPDATE_METRICS_TIMEOUT_MS,
+        )
+        try {
+          data = await fetchJson(PRIMARY_API_URL)
+        } catch (error) {
+          if (FALLBACK_API_URL && FALLBACK_API_URL !== PRIMARY_API_URL) {
+            data = await fetchJson(FALLBACK_API_URL)
+          } else {
+            throw error
+          }
         }
+        const rowsPayload = extractRowsPayload(data)
+        const lists = extractRankingLists(data)
+        const updated = looksLikeRawRows(rowsPayload)
+          ? buildRankingsFromRows(rowsPayload)
+          : (lists ? buildRankingsFromLists(lists) : buildRankingsFromRows(rowsPayload))
+        if (isMountedRef.current) {
+          setRankings(updated)
+          hasLoadedRef.current = true
+        }
+        const metricsData = await metricsPromise
+        if (isMountedRef.current) {
+          setUpdateMetrics(extractUpdateMetrics(metricsData || data))
+        }
+      } catch (error) {
+        console.error('Falha ao carregar ranking:', error)
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false)
+        }
+        fetchInFlightRef.current = null
       }
-      const rowsPayload = extractRowsPayload(data)
-      const lists = extractRankingLists(data)
-      const updated = looksLikeRawRows(rowsPayload)
-        ? buildRankingsFromRows(rowsPayload)
-        : (lists ? buildRankingsFromLists(lists) : buildRankingsFromRows(rowsPayload))
-      metricsData = await metricsPromise
-      if (isMountedRef.current) {
-        setRankings(updated)
-        setUpdateMetrics(extractUpdateMetrics(metricsData || data))
-        hasLoadedRef.current = true
-      }
-    } catch (error) {
-      console.error('Falha ao carregar ranking:', error)
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false)
-      }
-      fetchInFlightRef.current = false
-    }
+    })()
+
+    fetchInFlightRef.current = request
+    return request
   }, [])
 
   useEffect(() => {
@@ -685,12 +710,24 @@ function App() {
 
   useEffect(() => {
     if (!showUpdateScreen) return undefined
-    const timer = setTimeout(() => {
-      setShowUpdateScreen(false)
-      fetchData()
-    }, 20000)
+    let cancelled = false
+    let timerId = null
 
-    return () => clearTimeout(timer)
+    const startCountdown = async () => {
+      await fetchData()
+      if (cancelled) return
+      timerId = setTimeout(() => {
+        setShowUpdateScreen(false)
+        fetchData()
+      }, 20000)
+    }
+
+    startCountdown()
+
+    return () => {
+      cancelled = true
+      if (timerId) clearTimeout(timerId)
+    }
   }, [showUpdateScreen, fetchData])
 
   useEffect(() => {
@@ -841,7 +878,7 @@ function App() {
             <div className="intro-content update-content">
               <p className="intro-title">Indicadores de atualizacao</p>
               <div className="update-metric">
-                <span className="update-metric-label">Tempo medio</span>
+                <span className="update-metric-label">TEMPO MÉDIO ATUALIZAÇÃO</span>
                 <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>
               </div>
             </div>

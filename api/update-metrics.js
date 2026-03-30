@@ -5,7 +5,7 @@ const BASES = [
   .map((value) => String(value || '').trim().replace(/\/+$/, ''))
   .filter(Boolean)
 
-const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '15000', 10)
+const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '8000', 10)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
 
 export default async function handler(req, res) {
@@ -21,54 +21,64 @@ export default async function handler(req, res) {
     return
   }
 
-  let lastError = null
-  let lastTarget = null
+  const candidates = await Promise.allSettled(
+    BASES.map((base) => fetchMetricsCandidate(base)),
+  )
 
-  for (const base of BASES) {
-    const targetUrl = `${base}/`
-    lastTarget = targetUrl
+  const successful = candidates
+    .filter((entry) => entry.status === 'fulfilled')
+    .map((entry) => entry.value)
 
-    try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
-
-      let upstreamResponse
-      let rawBody = ''
-      try {
-        upstreamResponse = await fetch(targetUrl, {
-          method: 'GET',
-          headers: { Accept: 'application/json' },
-          signal: controller.signal,
-        })
-        rawBody = await upstreamResponse.text()
-      } finally {
-        clearTimeout(timeout)
-      }
-
-      if (!upstreamResponse || !upstreamResponse.ok) {
-        lastError = new Error(`Upstream status ${upstreamResponse ? upstreamResponse.status : 'unknown'}`)
-        continue
-      }
-
-      try {
-        const payload = JSON.parse(rawBody)
-        res.status(upstreamResponse.status).json(payload)
-        return
-      } catch {
-        res.status(upstreamResponse.status).send(rawBody)
-        return
-      }
-    } catch (error) {
-      lastError = error
-    }
+  const fallbackCandidate = successful[0]
+  if (fallbackCandidate) {
+    res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
+    return
   }
 
-  res.status(502).json({
+  const lastError = candidates.find((entry) => entry.status === 'rejected')?.reason
+  res.status(200).json({
     ok: false,
+    fallback: true,
+    combined: {
+      avg_of_averages_fmt: 'Sem dado',
+    },
+    generated_at: new Date().toISOString(),
     error: String(lastError?.message || 'Upstream request failed'),
-    target: lastTarget,
     upstreams: BASES,
   })
+}
+
+async function fetchMetricsCandidate(base) {
+  const targetUrl = `${base}/`
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+    const rawBody = await response.text()
+
+    if (!response.ok) {
+      throw new Error(`Upstream status ${response.status}`)
+    }
+
+    let payload
+    try {
+      payload = JSON.parse(rawBody)
+    } catch {
+      throw new Error('Upstream returned invalid JSON')
+    }
+
+    return {
+      status: response.status,
+      payload,
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function setCors(res) {
