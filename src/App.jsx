@@ -636,7 +636,7 @@ function App() {
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
-  const reloadPendingRef = useRef(false)
+  const [reloadRequested, setReloadRequested] = useState(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -735,6 +735,13 @@ function App() {
     return () => clearTimeout(timerId)
   }, [showUpdateScreen])
 
+  useEffect(() => {
+    if (!reloadRequested) return undefined
+    setReloadRequested(false)
+    fetchData()
+    return undefined
+  }, [fetchData, reloadRequested])
+
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
@@ -805,8 +812,7 @@ function App() {
         const next = (prev + 1) % rankings.length
         if (next === 0) {
           // Completou uma volta, agora busca dados da API
-          shouldFetchApiRef.current = true
-          fetchData()
+          setReloadRequested(true)
         }
         return next
       })
