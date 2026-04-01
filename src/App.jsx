@@ -805,21 +805,22 @@ function App() {
       return undefined
     }
 
-    const interval = setInterval(() => {
+    const timer = setTimeout(() => {
       const nextIndex = (activeIndexRef.current + 1) % rankings.length
       activeIndexRef.current = nextIndex
       setActiveIndex(nextIndex)
+      setCycleKey((prev) => prev + 1)
+
       if (nextIndex === 0) {
         // Completou uma volta: reinicia a intro e atualiza os dados
         setShowUpdateScreen(false)
         setShowIntro(true)
         fetchData()
       }
-      setCycleKey((prev) => prev + 1)
     }, ROTATION_INTERVAL)
 
-    return () => clearInterval(interval)
-  }, [fetchData, hasData, isPaused, showIntro, rankings.length])
+    return () => clearTimeout(timer)
+  }, [activeIndex, fetchData, hasData, isPaused, showIntro, showUpdateScreen, rankings.length])
 
   useEffect(() => {
     if (hasData) {
