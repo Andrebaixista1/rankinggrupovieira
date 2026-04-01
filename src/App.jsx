@@ -888,7 +888,7 @@ function App() {
         ) : showUpdateScreen ? (
           <section className="rank-card intro-screen has-gradient update-screen">
             <div className="intro-content update-content">
-              <p className="intro-title">Indicadores de atualizacao</p>
+              <p className="intro-title">TEMPO MÉDIO DE DELAY COM NEW CORBAM</p>
               <div className="update-metric">
                 <span className="update-metric-label">TEMPO MÉDIO ATUALIZAÇÃO</span>
                 <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>
