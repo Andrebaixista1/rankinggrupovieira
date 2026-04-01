@@ -636,7 +636,11 @@ function App() {
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
-  const [reloadRequested, setReloadRequested] = useState(false)
+  const activeIndexRef = useRef(0)
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex
+  }, [activeIndex])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -735,13 +739,6 @@ function App() {
     return () => clearTimeout(timerId)
   }, [showUpdateScreen])
 
-  useEffect(() => {
-    if (!reloadRequested) return undefined
-    setReloadRequested(false)
-    fetchData()
-    return undefined
-  }, [fetchData, reloadRequested])
-
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
@@ -808,14 +805,17 @@ function App() {
     }
 
     const interval = setInterval(() => {
+      let nextIndex = 0
       setActiveIndex((prev) => {
-        const next = (prev + 1) % rankings.length
-        if (next === 0) {
-          // Completou uma volta, agora busca dados da API
-          setReloadRequested(true)
-        }
-        return next
+        nextIndex = (prev + 1) % rankings.length
+        return nextIndex
       })
+      if (nextIndex === 0) {
+        // Completou uma volta: reinicia a intro e atualiza os dados
+        setShowUpdateScreen(false)
+        setShowIntro(true)
+        fetchData()
+      }
       setCycleKey((prev) => prev + 1)
     }, ROTATION_INTERVAL)
 
