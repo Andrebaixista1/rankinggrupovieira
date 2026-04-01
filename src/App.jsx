@@ -52,7 +52,7 @@ const baseRankings = [
 const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
 const PRIMARY_API_URL = '/api/ranking'
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
-const ROTATION_INTERVAL = 30000
+const ROTATION_INTERVAL = 15000
 const RETRY_INTERVAL_NO_DATA = 5000
 const PORTABILIDADE_PRODUCTS = [
   'Portabilidade',
@@ -723,6 +723,7 @@ function App() {
     const timer = setTimeout(() => {
       setShowIntro(false)
       setShowUpdateScreen(true)
+      activeIndexRef.current = 0
       setActiveIndex(0)
       setCycleKey((prev) => prev + 1)
     }, 5000)
@@ -805,11 +806,9 @@ function App() {
     }
 
     const interval = setInterval(() => {
-      let nextIndex = 0
-      setActiveIndex((prev) => {
-        nextIndex = (prev + 1) % rankings.length
-        return nextIndex
-      })
+      const nextIndex = (activeIndexRef.current + 1) % rankings.length
+      activeIndexRef.current = nextIndex
+      setActiveIndex(nextIndex)
       if (nextIndex === 0) {
         // Completou uma volta: reinicia a intro e atualiza os dados
         setShowUpdateScreen(false)
@@ -851,13 +850,21 @@ function App() {
 
   const handleNext = () => {
     if (!hasData) return
-    setActiveIndex((prev) => (prev + 1) % rankings.length)
+    setActiveIndex((prev) => {
+      const next = (prev + 1) % rankings.length
+      activeIndexRef.current = next
+      return next
+    })
     setCycleKey((prev) => prev + 1)
   }
 
   const handlePrev = () => {
     if (!hasData) return
-    setActiveIndex((prev) => (prev - 1 + rankings.length) % rankings.length)
+    setActiveIndex((prev) => {
+      const next = (prev - 1 + rankings.length) % rankings.length
+      activeIndexRef.current = next
+      return next
+    })
     setCycleKey((prev) => prev + 1)
   }
 
@@ -917,7 +924,11 @@ function App() {
           <div className="rank-footer">
             <div className="progress">
               {canRotate ? (
-                <div key={cycleKey} className="progress-bar" />
+                <div
+                  key={cycleKey}
+                  className="progress-bar"
+                  style={{ '--rotation-duration': `${ROTATION_INTERVAL}ms` }}
+                />
               ) : (
                 <div className="progress-bar paused" />
               )}
