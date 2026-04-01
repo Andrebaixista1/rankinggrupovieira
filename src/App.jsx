@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
-const mockRawData = [
-  { empresa: 'abbcred', vendedor_nome: 'EDUARDA SOUZA DA SILVA / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Margem Livre', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/3466f711e236db84', soma_valor_referencia: 22427.37 },
-  { empresa: 'abbcred', vendedor_nome: 'ALESANDRA DA SILVA RODRIGUES / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Port com Refin', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/50bdb2a9b6f70815', soma_valor_referencia: 50512.14 },
-  { empresa: 'vieira', vendedor_nome: 'MARIANA ROCHA SILVEIRA', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Margem Livre', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8116', soma_valor_referencia: 75000.00 },
-  { empresa: 'vieira', vendedor_nome: 'KELLI ESTEFANI DE JESUS SANTOS', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Portabilidade', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8117', soma_valor_referencia: 65000.00 },
-  { empresa: 'vieira', vendedor_nome: 'RICHARD KAUE CARVALHO', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Cartão com Saque', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8118', soma_valor_referencia: 55000.00 },
-  { empresa: 'abbcred', vendedor_nome: 'LAURA PELLEGRINI / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Refinanciamento', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/50bdb2a9b6f70816', soma_valor_referencia: 45000.00 },
-]
-
 const baseRankings = [
   {
     id: 'vendedores',
@@ -632,11 +623,10 @@ function buildRankingsFromLists(lists) {
 }
 
 function App() {
-  const initialRankings = buildRankingsFromRows(mockRawData)
-  const [rankings, setRankings] = useState(initialRankings)
+  const [rankings, setRankings] = useState(baseRankings)
   const [activeIndex, setActiveIndex] = useState(0)
   const [cycleKey, setCycleKey] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
@@ -644,10 +634,9 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [updateMetrics, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
-  const hasLoadedRef = useRef(true)
+  const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
   const reloadPendingRef = useRef(false)
-  const shouldFetchApiRef = useRef(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -719,6 +708,11 @@ function App() {
     fetchInFlightRef.current = request
     return request
   }, [])
+
+  useEffect(() => {
+    // Carrega dados da API na primeira inicialização
+    fetchData()
+  }, [fetchData])
 
   useEffect(() => {
     if (!showIntro) return undefined
