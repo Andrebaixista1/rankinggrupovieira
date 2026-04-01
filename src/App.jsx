@@ -736,7 +736,7 @@ function App() {
       timerId = setTimeout(() => {
         setShowUpdateScreen(false)
         fetchData()
-      }, 20000)
+      }, 10000)
     }
 
     startCountdown()
