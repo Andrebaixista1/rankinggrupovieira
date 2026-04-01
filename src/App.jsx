@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
+const mockRawData = [
+  { empresa: 'abbcred', vendedor_nome: 'EDUARDA SOUZA DA SILVA / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Margem Livre', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/3466f711e236db84', soma_valor_referencia: 22427.37 },
+  { empresa: 'abbcred', vendedor_nome: 'ALESANDRA DA SILVA RODRIGUES / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Port com Refin', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/50bdb2a9b6f70815', soma_valor_referencia: 50512.14 },
+  { empresa: 'vieira', vendedor_nome: 'MARIANA ROCHA SILVEIRA', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Margem Livre', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8116', soma_valor_referencia: 75000.00 },
+  { empresa: 'vieira', vendedor_nome: 'KELLI ESTEFANI DE JESUS SANTOS', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Portabilidade', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8117', soma_valor_referencia: 65000.00 },
+  { empresa: 'vieira', vendedor_nome: 'RICHARD KAUE CARVALHO', franquia_nome: 'MATRIZ', equipe_nome: 'VENDAS', produto_nome: 'Cartão com Saque', imagem_perfil: 'https://cdn.newcorban.com.br/747/profile_image/8118', soma_valor_referencia: 55000.00 },
+  { empresa: 'abbcred', vendedor_nome: 'LAURA PELLEGRINI / ADAPTA', franquia_nome: 'PARCEIRO ADAPTA', equipe_nome: 'ADAPTA:  THAMIRIS MIRANDA', produto_nome: 'Refinanciamento', imagem_perfil: 'https://cdn.newcorban.com.br/269/profile_image/50bdb2a9b6f70816', soma_valor_referencia: 45000.00 },
+]
+
 const baseRankings = [
   {
     id: 'vendedores',
@@ -623,10 +632,11 @@ function buildRankingsFromLists(lists) {
 }
 
 function App() {
-  const [rankings, setRankings] = useState(baseRankings)
+  const initialRankings = buildRankingsFromRows(mockRawData)
+  const [rankings, setRankings] = useState(initialRankings)
   const [activeIndex, setActiveIndex] = useState(0)
   const [cycleKey, setCycleKey] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
@@ -634,9 +644,10 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [updateMetrics, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
-  const hasLoadedRef = useRef(false)
+  const hasLoadedRef = useRef(true)
   const fetchInFlightRef = useRef(null)
   const reloadPendingRef = useRef(false)
+  const shouldFetchApiRef = useRef(false)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -719,37 +730,17 @@ function App() {
     }, 5000)
 
     return () => clearTimeout(timer)
-  }, [showIntro, fetchData])
+  }, [showIntro])
 
   useEffect(() => {
     if (!showUpdateScreen) return undefined
-    let cancelled = false
-    let timerId = null
+    const timerId = setTimeout(() => {
+      setShowUpdateScreen(false)
+    }, 10000)
 
-    const startCountdown = async () => {
-      const metricsReady = await fetchData()
-      if (cancelled) return
-      if (!metricsReady) {
-        timerId = setTimeout(startCountdown, RETRY_INTERVAL_NO_DATA)
-        return
-      }
-      timerId = setTimeout(() => {
-        setShowUpdateScreen(false)
-        fetchData()
-      }, 10000)
-    }
+    return () => clearTimeout(timerId)
+  }, [showUpdateScreen])
 
-    startCountdown()
-
-    return () => {
-      cancelled = true
-      if (timerId) clearTimeout(timerId)
-    }
-  }, [showUpdateScreen, fetchData])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
@@ -816,15 +807,12 @@ function App() {
     }
 
     const interval = setInterval(() => {
-      fetchData()
       setActiveIndex((prev) => {
         const next = (prev + 1) % rankings.length
         if (next === 0) {
-          if (!reloadPendingRef.current) {
-            reloadPendingRef.current = true
-            window.location.reload()
-          }
-          return prev
+          // Completou uma volta, agora busca dados da API
+          shouldFetchApiRef.current = true
+          fetchData()
         }
         return next
       })
