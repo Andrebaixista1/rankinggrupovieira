@@ -7,7 +7,6 @@ const BASES = [
 
 const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '8000', 10)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
-let cachedMetricsPayload = null
 
 export default async function handler(req, res) {
   setCors(res)
@@ -32,31 +31,18 @@ export default async function handler(req, res) {
 
   const fallbackCandidate = successful[0]
   if (fallbackCandidate) {
-    if (fallbackCandidate.isRealData) {
-      cachedMetricsPayload = fallbackCandidate.payload
-    }
     res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
     return
   }
 
   const lastError = candidates.find((entry) => entry.status === 'rejected')?.reason
-  if (cachedMetricsPayload) {
-    res.status(200).json({
-      ...cachedMetricsPayload,
-      fallback: true,
-      cached: true,
-      error: String(lastError?.message || 'Upstream request failed'),
-      upstreams: BASES,
-    })
-    return
-  }
-
   res.status(200).json({
     ok: false,
     fallback: true,
     combined: {
-      avg_of_averages_fmt: '--:--',
+      avg_of_averages_fmt: '00:00',
     },
+    avg_of_averages_fmt: '00:00',
     generated_at: new Date().toISOString(),
     error: String(lastError?.message || 'Upstream request failed'),
     upstreams: BASES,
@@ -118,8 +104,9 @@ function normalizeMetricsPayload(payload) {
     return {
       ok: false,
       combined: {
-        avg_of_averages_fmt: '--:--',
+        avg_of_averages_fmt: '00:00',
       },
+      avg_of_averages_fmt: '00:00',
     }
   }
 
@@ -136,12 +123,12 @@ function normalizeMetricsPayload(payload) {
     ...payload,
     combined: {
       ...(payload.combined && typeof payload.combined === 'object' ? payload.combined : {}),
-      avg_of_averages_fmt: '--:--',
+      avg_of_averages_fmt: '00:00',
     },
   }
 
   if ('avg_of_averages_fmt' in nextPayload) {
-    nextPayload.avg_of_averages_fmt = '--:--'
+    nextPayload.avg_of_averages_fmt = '00:00'
   }
 
   return nextPayload
@@ -189,7 +176,7 @@ function isPm2StatusPayload(payload) {
 
 function normalizePm2StatusPayload(payload) {
   const averageLabel = getAverageLabel(payload)
-  const normalizedLabel = isRealAverageLabel(averageLabel) ? averageLabel : '--:--'
+  const normalizedLabel = isRealAverageLabel(averageLabel) ? averageLabel : '00:00'
   const generatedAt = payload?.lastUpdatedAt || new Date().toISOString()
   return {
     ok: true,

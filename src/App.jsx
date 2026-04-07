@@ -87,7 +87,7 @@ const FALLBACK_API_URL = ENV_API_URL && ENV_API_URL !== PRIMARY_API_URL
   : ''
 const UPDATE_METRICS_TIMEOUT_MS = 7000
 const UPDATE_METRICS_CACHE_KEY = 'rankinggrupovieira:update-metrics-cache'
-const DEFAULT_UPDATE_METRICS = { averageLabel: '--:--', isReady: false }
+const DEFAULT_UPDATE_METRICS = { averageLabel: '00:00', isReady: false }
 
 async function fetchJson(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
@@ -150,6 +150,15 @@ function saveCachedUpdateMetrics(metrics) {
   }
 }
 
+function clearCachedUpdateMetrics() {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(UPDATE_METRICS_CACHE_KEY)
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 function normalizeMeta(value) {
   if (!value) return ''
   return String(value).replace(/\s+/g, ' ').trim()
@@ -157,7 +166,12 @@ function normalizeMeta(value) {
 
 function isRealUpdateMetricLabel(value) {
   const normalized = normalizeMeta(value)
-  return Boolean(normalized && normalized !== '00:00' && normalized !== '--:--')
+  return Boolean(
+    normalized
+      && normalized !== '00:00'
+      && normalized !== '00:00:00'
+      && normalized !== '--:--',
+  )
 }
 
 function formatName(value) {
@@ -694,6 +708,8 @@ function App() {
           setUpdateMetrics(() => {
             if (nextMetrics.isReady) {
               saveCachedUpdateMetrics(nextMetrics)
+            } else {
+              clearCachedUpdateMetrics()
             }
             return nextMetrics
           })
@@ -702,6 +718,10 @@ function App() {
         return false
       } catch (error) {
         console.error('Falha ao carregar ranking:', error)
+        if (isMountedRef.current) {
+          clearCachedUpdateMetrics()
+          setUpdateMetrics(DEFAULT_UPDATE_METRICS)
+        }
         return false
       } finally {
         if (isMountedRef.current) {
