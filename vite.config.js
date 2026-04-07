@@ -11,12 +11,12 @@ export default defineConfig({
     },
     proxy: {
       '/api/update-metrics': {
-        target: 'http://85.31.61.242:3099',
+        target: 'http://177.153.62.236:3032',
         changeOrigin: true,
-        rewrite: () => '/',
+        rewrite: () => '/status',
       },
       '/api': {
-        target: 'http://85.31.61.242:3066',
+        target: 'http://177.153.62.236:3066',
         changeOrigin: true,
       },
     },

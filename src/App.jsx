@@ -61,11 +61,11 @@ const PORTABILIDADE_PRODUCTS = [
   'Refin da Port',
 ]
 const NOVO_PRODUCTS = [
-  'Cartão com Saque',
+  'NOVO',
+  'Cartao com Saque',
   'Margem Livre',
-  'Cartão sem Saque',
+  'Cartao sem Saque',
 ]
-
 function buildApiUrl(raw) {
   if (!raw) return ''
   const trimmed = String(raw).trim()
@@ -485,6 +485,8 @@ function buildRankingsFromRows(rows) {
     'franquia_nome',
     'franquia',
     'nome_franquia',
+    'equipe_nome',
+    'equipe',
   ]) || 'franquia_nome'
   const valueKey = resolveRowKey(safeRows, [
     'valor_referencia',
@@ -889,7 +891,6 @@ function App() {
         ) : showUpdateScreen ? (
           <section className="rank-card intro-screen has-gradient update-screen">
             <div className="intro-content update-content">
-              <p className="intro-title">TEMPO MÉDIO DE DELAY COM NEW CORBAM</p>
               <div className="update-metric">
                 <span className="update-metric-label">TEMPO MÉDIO ATUALIZAÇÃO</span>
                 <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>

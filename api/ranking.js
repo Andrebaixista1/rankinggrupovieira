@@ -1,6 +1,9 @@
 const BASES = [
   process.env.UPSTREAM_API_BASE,
   process.env.UPSTREAM_API_BASE_FALLBACK,
+  'http://127.0.0.1:3066',
+  'http://0.0.0.0:3066',
+  'http://177.153.62.236:3066',
   'http://85.31.61.242:3066',
   'https://85.31.61.242:8003',
 ]

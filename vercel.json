@@ -4,9 +4,9 @@
   "outputDirectory": "dist",
   "framework": null,
   "env": {
-    "UPSTREAM_API_BASE": "http://85.31.61.242:3066",
+    "UPSTREAM_API_BASE": "http://177.153.62.236:3066",
     "UPSTREAM_API_BASE_FALLBACK": "https://85.31.61.242:8003",
-    "UPSTREAM_METRICS_API_BASE": "http://85.31.61.242:3099"
+    "UPSTREAM_METRICS_API_BASE": "http://177.153.62.236:3032/status"
   },
   "rewrites": [
     { "source": "/api/ranking", "destination": "/api/ranking.js" },

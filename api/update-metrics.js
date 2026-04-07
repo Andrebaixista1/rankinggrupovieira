@@ -1,6 +1,6 @@
 const BASES = [
   process.env.UPSTREAM_METRICS_API_BASE,
-  'http://85.31.61.242:3099',
+  'http://177.153.62.236:3032/status',
 ]
   .map((value) => String(value || '').trim().replace(/\/+$/, ''))
   .filter(Boolean)
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 }
 
 async function fetchMetricsCandidate(base) {
-  const targetUrl = `${base}/`
+  const targetUrl = buildMetricsTargetUrl(base)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -96,6 +96,13 @@ async function fetchMetricsCandidate(base) {
   }
 }
 
+function buildMetricsTargetUrl(base) {
+  const trimmed = String(base || '').trim().replace(/\/+$/, '')
+  if (!trimmed) return ''
+  if (/\/status$/i.test(trimmed) || /\/api\/update-metrics$/i.test(trimmed)) return trimmed
+  return `${trimmed}/status`
+}
+
 function normalizeMetricsCandidate(candidate) {
   if (!candidate || typeof candidate !== 'object') return candidate
   const isRealData = isRealMetricsPayload(candidate.payload)
@@ -114,6 +121,10 @@ function normalizeMetricsPayload(payload) {
         avg_of_averages_fmt: '--:--',
       },
     }
+  }
+
+  if (isPm2StatusPayload(payload)) {
+    return normalizePm2StatusPayload(payload)
   }
 
   const label = getAverageLabel(payload)
@@ -137,22 +148,80 @@ function normalizeMetricsPayload(payload) {
 }
 
 function getAverageLabel(payload) {
+  const cycleDurationFromMs = formatDurationFromMs(
+    payload?.averageCycleDurationMs ?? payload?.lastCycleDurationMs,
+  )
   return String(
     payload?.combined?.avg_of_averages_fmt
     || payload?.avg_of_averages_fmt
     || payload?.avgOfAveragesFmt
     || payload?.media_total_fmt
+    || payload?.averageCycleDuration
+    || payload?.lastCycleDuration
+    || cycleDurationFromMs
     || '',
   ).trim()
 }
 
 function isRealAverageLabel(value) {
   const normalized = String(value || '').trim()
-  return Boolean(normalized && normalized !== '00:00' && normalized !== '--:--')
+  return Boolean(
+    normalized
+      && normalized !== '00:00'
+      && normalized !== '00:00:00'
+      && normalized !== '--:--',
+  )
 }
 
 function isRealMetricsPayload(payload) {
   return isRealAverageLabel(getAverageLabel(payload))
+}
+
+function isPm2StatusPayload(payload) {
+  if (!payload || typeof payload !== 'object') return false
+  return (
+    Object.prototype.hasOwnProperty.call(payload, 'cycleNumber')
+    || Object.prototype.hasOwnProperty.call(payload, 'averageCycleDuration')
+    || Object.prototype.hasOwnProperty.call(payload, 'averageCycleDurationMs')
+    || Object.prototype.hasOwnProperty.call(payload, 'lastCycleDuration')
+  )
+}
+
+function normalizePm2StatusPayload(payload) {
+  const averageLabel = getAverageLabel(payload)
+  const normalizedLabel = isRealAverageLabel(averageLabel) ? averageLabel : '--:--'
+  const generatedAt = payload?.lastUpdatedAt || new Date().toISOString()
+  return {
+    ok: true,
+    source: 'pm2-status',
+    combined: {
+      avg_of_averages_fmt: normalizedLabel,
+    },
+    avg_of_averages_fmt: normalizedLabel,
+    generated_at: generatedAt,
+    cycle: {
+      number: payload?.cycleNumber ?? null,
+      completed: payload?.completedCycles ?? null,
+      state: payload?.cycleState ?? null,
+      lastError: payload?.lastError ?? null,
+      nextRunAt: payload?.nextRunAt ?? null,
+    },
+  }
+}
+
+function formatDurationFromMs(value) {
+  const ms = Number(value)
+  if (!Number.isFinite(ms) || ms <= 0) return ''
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+      seconds,
+    ).padStart(2, '0')}`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function setCors(res) {
