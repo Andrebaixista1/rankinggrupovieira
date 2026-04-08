@@ -4,7 +4,6 @@ const BASES = Array.from(
       process.env.UPSTREAM_API_BASE,
       process.env.UPSTREAM_API_BASE_FALLBACK,
       'http://177.153.62.236:3066',
-      'http://85.31.61.242:3066',
       'https://85.31.61.242:8003',
     ]
       .map((value) => String(value || '').trim().replace(/\/+$/, ''))
@@ -12,7 +11,10 @@ const BASES = Array.from(
   ),
 )
 
-const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '30000', 10)
+const configuredTimeoutMs = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '', 10)
+const REQUEST_TIMEOUT_MS = Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+  ? Math.max(configuredTimeoutMs, 30000)
+  : 30000
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
 let lastSuccessfulPayload = null
 
