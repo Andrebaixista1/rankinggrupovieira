@@ -1,14 +1,16 @@
-const BASES = [
-  process.env.UPSTREAM_API_BASE,
-  process.env.UPSTREAM_API_BASE_FALLBACK,
-  'http://127.0.0.1:3066',
-  'http://0.0.0.0:3066',
-  'http://177.153.62.236:3066',
-  'http://85.31.61.242:3066',
-  'https://85.31.61.242:8003',
-]
-  .map((v) => String(v || '').trim().replace(/\/+$/, ''))
-  .filter(Boolean)
+const BASES = Array.from(
+  new Set(
+    [
+      process.env.UPSTREAM_API_BASE,
+      process.env.UPSTREAM_API_BASE_FALLBACK,
+      'http://177.153.62.236:3066',
+      'http://85.31.61.242:3066',
+      'https://85.31.61.242:8003',
+    ]
+      .map((value) => String(value || '').trim().replace(/\/+$/, ''))
+      .filter(Boolean),
+  ),
+)
 
 const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '8000', 10)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
@@ -27,27 +29,29 @@ export default async function handler(req, res) {
   }
 
   const query = req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
-  const candidates = await Promise.allSettled(
-    BASES.map((base) => fetchRankingCandidate(base, query)),
-  )
+  let fallbackCandidate = null
+  let lastError = null
 
-  const successful = candidates
-    .filter((entry) => entry.status === 'fulfilled')
-    .map((entry) => entry.value)
-
-  const productCandidate = successful.find((candidate) => candidate.hasProduto)
-  if (productCandidate) {
-    res.status(productCandidate.status).json(productCandidate.payload)
-    return
+  for (const base of BASES) {
+    try {
+      const candidate = await fetchRankingCandidate(base, query)
+      if (payloadHasRankingData(candidate.payload)) {
+        res.status(candidate.status).json(candidate.payload)
+        return
+      }
+      if (!fallbackCandidate) {
+        fallbackCandidate = candidate
+      }
+    } catch (error) {
+      lastError = error
+    }
   }
 
-  const fallbackCandidate = successful[0]
   if (fallbackCandidate) {
     res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
     return
   }
 
-  const lastError = candidates.find((entry) => entry.status === 'rejected')?.reason
   res.status(200).json({
     ok: false,
     fallback: true,
@@ -57,7 +61,7 @@ export default async function handler(req, res) {
 }
 
 async function fetchRankingCandidate(base, query) {
-  const targetUrl = `${base}/api/ranking${query}`
+  const targetUrl = buildRankingTargetUrl(base, query)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -84,11 +88,17 @@ async function fetchRankingCandidate(base, query) {
     return {
       status: response.status,
       payload: normalized,
-      hasProduto: payloadHasProduto(normalized),
     }
   } finally {
     clearTimeout(timeout)
   }
+}
+
+function buildRankingTargetUrl(base, query = '') {
+  const trimmed = String(base || '').trim().replace(/\/+$/, '')
+  if (!trimmed) return ''
+  if (/\/api\/ranking$/i.test(trimmed)) return `${trimmed}${query}`
+  return `${trimmed}/api/ranking${query}`
 }
 
 function setCors(res) {
@@ -116,4 +126,26 @@ function payloadHasProduto(payload) {
       Object.prototype.hasOwnProperty.call(row, 'produtoNome')
     )
   })
+}
+
+function payloadHasRankingData(payload) {
+  return payloadHasProduto(payload) || payloadHasRows(payload)
+}
+
+function payloadHasRows(payload, seen = new Set()) {
+  if (Array.isArray(payload)) {
+    return payload.some((row) => row && typeof row === 'object')
+  }
+
+  if (!payload || typeof payload !== 'object' || seen.has(payload)) {
+    return false
+  }
+  seen.add(payload)
+
+  const directCandidates = [payload.rows, payload.data, payload.result, payload.items]
+  if (directCandidates.some((value) => Array.isArray(value) && value.some((row) => row && typeof row === 'object'))) {
+    return true
+  }
+
+  return Object.values(payload).some((value) => payloadHasRows(value, seen))
 }

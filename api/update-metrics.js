@@ -21,21 +21,30 @@ export default async function handler(req, res) {
     return
   }
 
-  const candidates = await Promise.allSettled(
-    BASES.map((base) => fetchMetricsCandidate(base)),
-  )
+  let fallbackCandidate = null
+  let lastError = null
 
-  const successful = candidates
-    .filter((entry) => entry.status === 'fulfilled')
-    .map((entry) => normalizeMetricsCandidate(entry.value))
+  for (const base of BASES) {
+    try {
+      const candidate = normalizeMetricsCandidate(await fetchMetricsCandidate(base))
+      if (candidate.isRealData) {
+        res.status(candidate.status).json(candidate.payload)
+        return
+      }
 
-  const fallbackCandidate = successful[0]
+      if (!fallbackCandidate) {
+        fallbackCandidate = candidate
+      }
+    } catch (error) {
+      lastError = error
+    }
+  }
+
   if (fallbackCandidate) {
     res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
     return
   }
 
-  const lastError = candidates.find((entry) => entry.status === 'rejected')?.reason
   res.status(200).json({
     ok: false,
     fallback: true,

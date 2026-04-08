@@ -53,7 +53,6 @@ const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
 const PRIMARY_API_URL = '/api/ranking'
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
 const ROTATION_INTERVAL = 15000
-const RETRY_INTERVAL_NO_DATA = 5000
 const PORTABILIDADE_PRODUCTS = [
   'Portabilidade',
   'Refinanciamento',
@@ -880,18 +879,6 @@ function App() {
 
     return () => clearTimeout(timer)
   }, [activeIndex, fetchData, hasData, isPaused, showIntro, showUpdateScreen, rankings.length])
-
-  useEffect(() => {
-    if (hasData) {
-      return undefined
-    }
-
-    const interval = setInterval(() => {
-      fetchData()
-    }, RETRY_INTERVAL_NO_DATA)
-
-    return () => clearInterval(interval)
-  }, [fetchData, hasData])
 
   useEffect(() => {
     if (hasData) {
