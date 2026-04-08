@@ -49,8 +49,7 @@ const baseRankings = [
   },
 ]
 
-const ENV_API_URL = buildApiUrl(import.meta.env.VITE_API_URL)
-const PRIMARY_API_URL = '/api/ranking'
+const PRIMARY_API_URL = 'http://177.153.62.236:3066/api/ranking'
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
 const ROTATION_INTERVAL = 15000
 const PORTABILIDADE_PRODUCTS = [
@@ -74,25 +73,12 @@ const IMAGE_FIELD_CANDIDATES = [
   'avatar',
   'profile_image',
 ]
-function buildApiUrl(raw) {
-  if (!raw) return ''
-  const trimmed = String(raw).trim()
-  if (!trimmed) return ''
-  if (/\/api\/ranking$/i.test(trimmed)) return trimmed
-  if (trimmed.includes('/api/')) return trimmed
-  const normalized = trimmed.replace(/\/+$/, '')
-  return `${normalized}/api/ranking`
-}
-
 function buildRequestUrl(baseUrl) {
   if (!baseUrl) return ''
   const joiner = baseUrl.includes('?') ? '&' : '?'
   return `${baseUrl}${joiner}t=${Date.now()}`
 }
 
-const FALLBACK_API_URL = ENV_API_URL && ENV_API_URL !== PRIMARY_API_URL
-  ? ENV_API_URL
-  : ''
 const UPDATE_METRICS_TIMEOUT_MS = 7000
 const UPDATE_METRICS_CACHE_KEY = 'rankinggrupovieira:update-metrics-cache'
 const DEFAULT_UPDATE_METRICS = { averageLabel: '00:00', isReady: false }
@@ -720,15 +706,7 @@ function App() {
           fetchJson(UPDATE_METRICS_API_URL),
           UPDATE_METRICS_TIMEOUT_MS,
         )
-        try {
-          data = await fetchJson(PRIMARY_API_URL)
-        } catch (error) {
-          if (FALLBACK_API_URL && FALLBACK_API_URL !== PRIMARY_API_URL) {
-            data = await fetchJson(FALLBACK_API_URL)
-          } else {
-            throw error
-          }
-        }
+        data = await fetchJson(PRIMARY_API_URL)
         const rowsPayload = extractRowsPayload(data)
         const lists = extractRankingLists(data)
         const updated = looksLikeRawRows(rowsPayload)

@@ -15,10 +15,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => '/status',
       },
-      '/api': {
-        target: 'http://177.153.62.236:3066',
-        changeOrigin: true,
-      },
     },
   },
 })
