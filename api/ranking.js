@@ -12,8 +12,9 @@ const BASES = Array.from(
   ),
 )
 
-const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '8000', 10)
+const REQUEST_TIMEOUT_MS = Number.parseInt(process.env.PROXY_TIMEOUT_MS || '30000', 10)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = process.env.NODE_TLS_REJECT_UNAUTHORIZED || '0'
+let lastSuccessfulPayload = null
 
 export default async function handler(req, res) {
   setCors(res)
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
     try {
       const candidate = await fetchRankingCandidate(base, query)
       if (payloadHasRankingData(candidate.payload)) {
+        lastSuccessfulPayload = candidate.payload
         res.status(candidate.status).json(candidate.payload)
         return
       }
@@ -49,6 +51,11 @@ export default async function handler(req, res) {
 
   if (fallbackCandidate) {
     res.status(fallbackCandidate.status).json(fallbackCandidate.payload)
+    return
+  }
+
+  if (payloadHasRankingData(lastSuccessfulPayload)) {
+    res.status(200).json(lastSuccessfulPayload)
     return
   }
 
