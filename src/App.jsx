@@ -49,7 +49,8 @@ const baseRankings = [
   },
 ]
 
-const PRIMARY_API_URL = 'http://177.153.62.236:3066/api/ranking'
+const DIRECT_PRIMARY_API_URL = 'http://177.153.62.236:3066/api/ranking'
+const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_API_URL
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
 const ROTATION_INTERVAL = 15000
 const PORTABILIDADE_PRODUCTS = [
