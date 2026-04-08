@@ -66,6 +66,15 @@ const NOVO_PRODUCTS = [
   'Margem Livre',
   'Cartao sem Saque',
 ]
+const IMAGE_FIELD_CANDIDATES = [
+  'imagem_perfil_url',
+  'imagem_perfil',
+  'imagemPerfil',
+  'imagem',
+  'foto',
+  'avatar',
+  'profile_image',
+]
 function buildApiUrl(raw) {
   if (!raw) return ''
   const trimmed = String(raw).trim()
@@ -269,9 +278,15 @@ function findDeepFieldValue(payload, keys, seen = new Set()) {
 }
 
 function extractUpdateMetrics(payload) {
+  const cycleDurationFromMs = formatDurationFromMs(
+    payload?.averageCycleDurationMs ?? payload?.lastCycleDurationMs,
+  )
   const averageLabel = normalizeMeta(
     payload?.combined?.avg_of_averages_fmt
-    || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt']),
+    || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt'])
+    || payload?.averageCycleDuration
+    || payload?.lastCycleDuration
+    || cycleDurationFromMs,
   )
 
   if (!isRealUpdateMetricLabel(averageLabel)) {
@@ -279,6 +294,19 @@ function extractUpdateMetrics(payload) {
   }
 
   return { averageLabel, isReady: true }
+}
+
+function formatDurationFromMs(value) {
+  const ms = Number(value)
+  if (!Number.isFinite(ms) || ms <= 0) return ''
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function parseNumericValue(value) {
@@ -303,6 +331,16 @@ function hasRowValue(value) {
   return String(value).trim().length > 0
 }
 
+function resolveImageValue(payload, preferredKeys = []) {
+  const keys = [...preferredKeys, ...IMAGE_FIELD_CANDIDATES]
+  for (const key of keys) {
+    if (!key) continue
+    const value = normalizeMeta(payload?.[key])
+    if (value) return value
+  }
+  return ''
+}
+
 function rowHasKey(row, key) {
   return Boolean(row && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, key) && hasRowValue(row[key]))
 }
@@ -324,7 +362,7 @@ function buildGroups(rows, groupKey, metaKey, options = {}) {
     const rawMeta = row?.[metaKey]
     const metaValue = metaFormatter ? metaFormatter(rawMeta) : normalizeMeta(rawMeta)
     const value = parseNumericValue(row?.[valueKey])
-    const imageValue = imageKey ? normalizeMeta(row?.[imageKey]) : ''
+    const imageValue = resolveImageValue(row, imageKey ? [imageKey] : [])
 
     if (!map.has(rawName)) {
       map.set(rawName, {
@@ -516,6 +554,7 @@ function buildRankingsFromRows(rows) {
     'produtoName',
   ]) || 'produto_nome'
   const imageKey = resolveRowKey(safeRows, [
+    'imagem_perfil_url',
     'imagem_perfil',
     'imagemPerfil',
     'imagem',
@@ -588,9 +627,7 @@ function buildRankingsFromLists(lists) {
           ?? item?.valor
           ?? item?.total,
       )
-      const image = config.imageKey
-        ? normalizeMeta(item?.[config.imageKey])
-        : normalizeMeta(item?.imagem_perfil)
+      const image = resolveImageValue(item, config.imageKey ? [config.imageKey] : [])
       let meta = ''
       if (config.count) {
         const countValue =
