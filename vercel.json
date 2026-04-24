@@ -4,8 +4,8 @@
   "outputDirectory": "dist",
   "framework": null,
   "env": {
-    "UPSTREAM_API_BASE": "http://177.153.62.236:3066",
-    "UPSTREAM_API_BASE_FALLBACK": "https://85.31.61.242:8003",
+    "UPSTREAM_API_BASE": "https://app.apivieiracred.com.br/webhook/ranking",
+    "UPSTREAM_API_BASE_FALLBACK": "https://app.apivieiracred.com.br/webhook/ranking",
     "UPSTREAM_METRICS_API_BASE": "http://177.153.62.236:3032/status"
   },
   "rewrites": [

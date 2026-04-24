@@ -3,8 +3,7 @@ const BASES = Array.from(
     [
       process.env.UPSTREAM_API_BASE,
       process.env.UPSTREAM_API_BASE_FALLBACK,
-      'http://177.153.62.236:3066',
-      'https://85.31.61.242:8003',
+      'https://app.apivieiracred.com.br/webhook/ranking',
     ]
       .map((value) => String(value || '').trim().replace(/\/+$/, ''))
       .filter(Boolean),
@@ -106,7 +105,9 @@ async function fetchRankingCandidate(base, query) {
 function buildRankingTargetUrl(base, query = '') {
   const trimmed = String(base || '').trim().replace(/\/+$/, '')
   if (!trimmed) return ''
-  if (/\/api\/ranking$/i.test(trimmed)) return `${trimmed}${query}`
+  if (/\/api\/ranking$/i.test(trimmed) || /\/webhook\/ranking$/i.test(trimmed)) {
+    return `${trimmed}${query}`
+  }
   return `${trimmed}/api/ranking${query}`
 }
 

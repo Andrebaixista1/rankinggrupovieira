@@ -49,7 +49,7 @@ const baseRankings = [
   },
 ]
 
-const DIRECT_PRIMARY_API_URL = 'http://177.153.62.236:3066/api/ranking'
+const DIRECT_PRIMARY_API_URL = 'https://app.apivieiracred.com.br/webhook/ranking'
 const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_API_URL
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
 const ROTATION_INTERVAL = 15000
@@ -669,7 +669,6 @@ function App() {
   const [hasTimeout, setHasTimeout] = useState(false)
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
-  const [showUpdateScreen, setShowUpdateScreen] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [updateMetrics, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
@@ -759,7 +758,6 @@ function App() {
     if (!showIntro) return undefined
     const timer = setTimeout(() => {
       setShowIntro(false)
-      setShowUpdateScreen(true)
       activeIndexRef.current = 0
       setActiveIndex(0)
       setCycleKey((prev) => prev + 1)
@@ -768,19 +766,10 @@ function App() {
     return () => clearTimeout(timer)
   }, [showIntro])
 
-  useEffect(() => {
-    if (!showUpdateScreen) return undefined
-    const timerId = setTimeout(() => {
-      setShowUpdateScreen(false)
-    }, 10000)
-
-    return () => clearTimeout(timerId)
-  }, [showUpdateScreen])
-
 
   const current = rankings[activeIndex] || baseRankings[0]
   const hasData = rankings.some((item) => item.rows.length > 0)
-  const canRotate = hasData && !isLoading && !isPaused && !showIntro && !showUpdateScreen
+  const canRotate = hasData && !isLoading && !isPaused && !showIntro
   const totalValue = current.rows.reduce(
     (sum, row) => sum + (Number.isFinite(row.value) ? row.value : 0),
     0,
@@ -850,14 +839,13 @@ function App() {
 
       if (nextIndex === 0) {
         // Completou uma volta: reinicia a intro e atualiza os dados
-        setShowUpdateScreen(false)
         setShowIntro(true)
         fetchData()
       }
     }, ROTATION_INTERVAL)
 
     return () => clearTimeout(timer)
-  }, [activeIndex, fetchData, hasData, isPaused, showIntro, showUpdateScreen, rankings.length])
+  }, [activeIndex, fetchData, hasData, isPaused, showIntro, rankings.length])
 
   useEffect(() => {
     if (hasData) {
@@ -909,15 +897,6 @@ function App() {
                 <img src="/logo-vieira.webp" alt="VieiraCred" />
               </div>
               <p className="intro-subtitle">Preparando os rankings...</p>
-            </div>
-          </section>
-        ) : showUpdateScreen ? (
-          <section className="rank-card intro-screen has-gradient update-screen">
-            <div className="intro-content update-content">
-              <div className="update-metric">
-                <span className="update-metric-label">TEMPO MÉDIO ATUALIZAÇÃO</span>
-                <strong className="update-metric-value">{updateMetrics.averageLabel}</strong>
-              </div>
             </div>
           </section>
         ) : (
