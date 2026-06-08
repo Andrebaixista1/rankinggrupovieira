@@ -1,30 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  font-family: 'Montserrat', sans-serif;
-  --display-font: 'Montserrat', sans-serif;
-  font-size: clamp(16px, 1.05vw + 0.4vh, 18px);
-  line-height: 1.35;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --display-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
   font-weight: 400;
-  color: #303030;
-  background-color: #f5f7fa;
+  color: #16361f;
+  background-color: #f6f7f4;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --bg: #f5f7fa;
-  --bg-2: #ffffff;
-  --ink: #303030;
-  --muted: #6b6f76;
-  --accent: #066eea;
-  --accent-2: #2a75ff;
-  --accent-3: #1376eb;
-  --accent-soft: #e8f0ff;
-  --field: #066eea;
-  --field-deep: #0a2e84;
-  --sun: #2a75ff;
-  --sky: #1376eb;
-  --line-soft: rgba(255, 255, 255, 0.16);
 }
 
 *,
@@ -42,8 +29,11 @@ body,
 body {
   margin: 0;
   min-height: 100%;
-  color: var(--ink);
-  background: radial-gradient(900px circle at 10% 15%, #dfe9ff, #f5f7fa 45%, #ffffff 80%);
+  color: #16361f;
+  background:
+    radial-gradient(900px circle at 10% 10%, rgba(255, 214, 92, 0.16), transparent 24%),
+    radial-gradient(800px circle at 90% 12%, rgba(34, 197, 94, 0.08), transparent 22%),
+    linear-gradient(180deg, #ffffff 0%, #f8f9f6 45%, #eef3eb 100%);
   position: relative;
   overflow: hidden;
 }
@@ -58,14 +48,39 @@ body::after {
 }
 
 body::before {
-  background: radial-gradient(420px circle at 85% 15%, rgba(6, 110, 234, 0.18), transparent 60%);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(20, 53, 29, 0.02) 0,
+      rgba(20, 53, 29, 0.02) 1px,
+      transparent 1px,
+      transparent 140px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(20, 53, 29, 0.02) 0,
+      rgba(20, 53, 29, 0.02) 1px,
+      transparent 1px,
+      transparent 140px
+    );
+  opacity: 0.35;
 }
 
 body::after {
-  background: radial-gradient(520px circle at 15% 80%, rgba(42, 117, 255, 0.18), transparent 65%);
+  background:
+    radial-gradient(600px circle at 50% 50%, rgba(255, 214, 92, 0.04), transparent 60%),
+    radial-gradient(800px circle at 18% 82%, rgba(34, 197, 94, 0.04), transparent 42%);
+  filter: blur(2px);
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
 }

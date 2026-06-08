@@ -1,18 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
 import './App.css'
 
 const pageMotion = {
-  initial: { opacity: 0, y: 18, scale: 0.985 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -14, scale: 0.99 },
-}
-
-const introContentMotion = {
-  initial: { opacity: 0, y: 16 },
+  initial: { opacity: 0, y: 26, rotateX: 10, rotateY: -6, scale: 0.975 },
   animate: {
     opacity: 1,
     y: 0,
+    rotateX: 0,
+    rotateY: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: 'easeOut' },
+  },
+  exit: { opacity: 0, y: -18, rotateX: -8, rotateY: 4, scale: 0.985 },
+}
+
+const introContentMotion = {
+  initial: { opacity: 0, y: 18, rotateX: 8, rotateY: -4 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    rotateX: 0,
+    rotateY: 0,
     transition: {
       delay: 0.12,
       duration: 0.55,
@@ -20,13 +29,13 @@ const introContentMotion = {
       staggerChildren: 0.12,
     },
   },
-  exit: { opacity: 0, y: -10 },
+  exit: { opacity: 0, y: -10, rotateX: -6, rotateY: 3 },
 }
 
 const introItemMotion = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
+  initial: { opacity: 0, y: 12, z: -8 },
+  animate: { opacity: 1, y: 0, z: 0 },
+  exit: { opacity: 0, y: -8, z: -8 },
 }
 
 const gridMotion = {
@@ -39,9 +48,15 @@ const gridMotion = {
 }
 
 const rowMotion = {
-  initial: { opacity: 0, x: -18 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 18 },
+  initial: { opacity: 0, x: -18, rotateY: -10, rotateX: 4, z: -20 },
+  animate: {
+    opacity: 1,
+    x: 0,
+    rotateY: 0,
+    rotateX: 0,
+    z: 0,
+  },
+  exit: { opacity: 0, x: 18, rotateY: 10, rotateX: -4, z: -20 },
 }
 
 const baseRankings = [
@@ -101,21 +116,47 @@ const baseRankings = [
   },
 ]
 
+function ControlIcon({ type }) {
+  if (type === 'prev') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15.5 5.5 9 12l6.5 6.5-1.4 1.4L6.2 12l7.9-7.9 1.4 1.4z" />
+      </svg>
+    )
+  }
+
+  if (type === 'pause') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 5h3v14H7V5zm7 0h3v14h-3V5z" />
+      </svg>
+    )
+  }
+
+  if (type === 'play') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 5.5v13l11-6.5-11-6.5z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m8.5 5.5 1.4-1.4L17.8 12l-7.9 7.9-1.4-1.4L14.5 12 8.5 5.5z" />
+    </svg>
+  )
+}
+
 const DIRECT_PRIMARY_API_URL = 'https://app.apivieiracred.com.br/webhook/ranking'
 const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_API_URL
 const UPDATE_METRICS_API_URL = '/api/update-metrics'
-const ROTATION_INTERVAL = 15000
+const ROTATION_INTERVAL = 30000
 const PORTABILIDADE_PRODUCTS = [
-  'Portabilidade',
-  'Refinanciamento',
-  'Port com Refin',
-  'Refin da Port',
+  'PORTABILIDADE',
 ]
 const NOVO_PRODUCTS = [
   'NOVO',
-  'Cartao com Saque',
-  'Margem Livre',
-  'Cartao sem Saque',
 ]
 const CLT_PRODUCTS = [
   'CLT',
@@ -142,7 +183,7 @@ const DEFAULT_UPDATE_METRICS = { averageLabel: '00:00', isReady: false }
 async function fetchJson(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
   if (!requestUrl) {
-    throw new Error('URL da API nao definida')
+    throw new Error('URL da API não definida')
   }
   const response = await fetch(requestUrl, { cache: 'no-store' })
   const text = await response.text()
@@ -152,7 +193,7 @@ async function fetchJson(baseUrl) {
   try {
     return JSON.parse(text)
   } catch {
-    throw new Error('Resposta da API nao e JSON valido')
+    throw new Error('Resposta da API não é JSON válido')
   }
 }
 
@@ -742,6 +783,10 @@ function App() {
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
   const activeIndexRef = useRef(0)
+  const spotlightTimerRef = useRef(null)
+  const [showSpotlight, setShowSpotlight] = useState(false)
+  const [spotlightRankingId, setSpotlightRankingId] = useState('')
+  const [spotlightRow, setSpotlightRow] = useState(null)
   const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
@@ -844,6 +889,70 @@ function App() {
   )
   const safeTotalValue = Number.isFinite(totalValue) ? totalValue : 0
   const isBeforeStart = now.getHours() < 9
+  const spotlightDuration = 5000
+
+  const clearSpotlightTimer = useCallback(() => {
+    if (spotlightTimerRef.current) {
+      clearTimeout(spotlightTimerRef.current)
+      spotlightTimerRef.current = null
+    }
+  }, [])
+
+  const closeSpotlight = useCallback(() => {
+    clearSpotlightTimer()
+    setShowSpotlight(false)
+    setSpotlightRow(null)
+  }, [clearSpotlightTimer])
+
+  const openSpotlightForRanking = useCallback((ranking) => {
+    clearSpotlightTimer()
+
+    if (!ranking?.rows?.length || ranking.id === 'supervisores' || ranking.id === 'gerentes') {
+      closeSpotlight()
+      return
+    }
+
+    const topRow = ranking.rows[0]
+    setSpotlightRankingId(ranking.id)
+    setSpotlightRow(topRow)
+    setShowSpotlight(true)
+
+    spotlightTimerRef.current = setTimeout(() => {
+      setShowSpotlight(false)
+      setSpotlightRow(null)
+      spotlightTimerRef.current = null
+    }, spotlightDuration)
+  }, [clearSpotlightTimer, closeSpotlight, spotlightDuration])
+
+  useEffect(() => {
+    return () => {
+      clearSpotlightTimer()
+    }
+  }, [clearSpotlightTimer])
+
+  useEffect(() => {
+    if (showIntro || isLoading || !hasData) {
+      closeSpotlight()
+      return undefined
+    }
+
+    if (showSpotlight || spotlightRankingId === current.id) {
+      return undefined
+    }
+
+    openSpotlightForRanking(current)
+  }, [
+    clearSpotlightTimer,
+    closeSpotlight,
+    current,
+    hasData,
+    isLoading,
+    openSpotlightForRanking,
+    showIntro,
+    showSpotlight,
+    spotlightRankingId,
+  ])
+
   const currencyFormatter = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -867,7 +976,7 @@ function App() {
         animate={prefersReducedMotion ? undefined : 'animate'}
         exit={prefersReducedMotion ? undefined : 'exit'}
         transition={{ duration: 0.34, ease: 'easeOut' }}
-        whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
+        whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01, rotateX: 1.5, rotateY: -1 }}
         whileTap={prefersReducedMotion ? undefined : { scale: 0.995 }}
       >
         <div className="rank-pos-wrap">
@@ -902,15 +1011,17 @@ function App() {
   }
 
   useEffect(() => {
-    if (!hasData || showIntro || isPaused) {
+    if (!hasData || showIntro || isPaused || showSpotlight) {
       return undefined
     }
 
     const timer = setTimeout(() => {
       const nextIndex = (activeIndexRef.current + 1) % rankings.length
+      const nextRanking = rankings[nextIndex] || baseRankings[nextIndex] || baseRankings[0]
       activeIndexRef.current = nextIndex
       setActiveIndex(nextIndex)
       setCycleKey((prev) => prev + 1)
+      openSpotlightForRanking(nextRanking)
 
       if (nextIndex === 0) {
         // Completou uma volta: reinicia a intro e atualiza os dados
@@ -920,7 +1031,7 @@ function App() {
     }, ROTATION_INTERVAL)
 
     return () => clearTimeout(timer)
-  }, [activeIndex, fetchData, hasData, isPaused, showIntro, rankings.length])
+  }, [activeIndex, fetchData, hasData, isPaused, openSpotlightForRanking, rankings, showIntro, showSpotlight])
 
   useEffect(() => {
     if (hasData) {
@@ -939,22 +1050,22 @@ function App() {
 
   const handleNext = () => {
     if (!hasData) return
-    setActiveIndex((prev) => {
-      const next = (prev + 1) % rankings.length
-      activeIndexRef.current = next
-      return next
-    })
+    const next = (activeIndexRef.current + 1) % rankings.length
+    const nextRanking = rankings[next] || baseRankings[next] || baseRankings[0]
+    activeIndexRef.current = next
+    setActiveIndex(next)
     setCycleKey((prev) => prev + 1)
+    openSpotlightForRanking(nextRanking)
   }
 
   const handlePrev = () => {
     if (!hasData) return
-    setActiveIndex((prev) => {
-      const next = (prev - 1 + rankings.length) % rankings.length
-      activeIndexRef.current = next
-      return next
-    })
+    const next = (activeIndexRef.current - 1 + rankings.length) % rankings.length
+    const nextRanking = rankings[next] || baseRankings[next] || baseRankings[0]
+    activeIndexRef.current = next
+    setActiveIndex(next)
     setCycleKey((prev) => prev + 1)
+    openSpotlightForRanking(nextRanking)
   }
 
   const handleTogglePause = () => {
@@ -964,6 +1075,49 @@ function App() {
   return (
     <div className="app">
       <main className="board">
+        <div className="flag-hero" aria-hidden="true">
+          <img src="/instituto-mix-banner.png" alt="" />
+        </div>
+        <AnimatePresence>
+          {showSpotlight && spotlightRow ? (
+            <Motion.div
+              key={`spotlight-${spotlightRankingId}`}
+              className="spotlight-overlay"
+              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: prefersReducedMotion ? 0.18 : 0.28, ease: 'easeOut' }}
+              role="presentation"
+              onClick={closeSpotlight}
+            >
+              <Motion.section
+                className="spotlight-card"
+                onClick={(event) => event.stopPropagation()}
+                initial={prefersReducedMotion ? { scale: 1 } : { scale: 0.92, y: 20, rotateX: 12 }}
+                animate={prefersReducedMotion ? { scale: 1 } : { scale: 1, y: 0, rotateX: 0 }}
+                exit={prefersReducedMotion ? { scale: 1 } : { scale: 0.95, y: -10, rotateX: -8 }}
+                transition={{ duration: prefersReducedMotion ? 0.18 : 0.32, ease: 'easeOut' }}
+              >
+                <p className="spotlight-kicker">1º lugar do ranking</p>
+                <div className="spotlight-rank">
+                  <div className="spotlight-badge">01</div>
+                  <div className="spotlight-copy">
+                    <div className="spotlight-photo">
+                      {spotlightRow.image ? (
+                        <img src={spotlightRow.image} alt={spotlightRow.name} loading="lazy" />
+                      ) : (
+                        <div className="spotlight-photo-fallback">{spotlightRow.name?.trim().charAt(0) || '1'}</div>
+                      )}
+                    </div>
+                    <div className="spotlight-name">{spotlightRow.name}</div>
+                    {spotlightRow.meta ? <div className="spotlight-meta">{spotlightRow.meta}</div> : null}
+                  </div>
+                </div>
+                <div className="spotlight-value">{currencyFormatter.format(spotlightRow.value || 0)}</div>
+              </Motion.section>
+            </Motion.div>
+          ) : null}
+        </AnimatePresence>
         <AnimatePresence mode="wait">
         {showIntro ? (
           <Motion.section
@@ -986,7 +1140,7 @@ function App() {
               <Motion.div className="intro-logo" variants={prefersReducedMotion ? undefined : introItemMotion}>
                 <img src="/logo-vieira.webp" alt="VieiraCred" />
               </Motion.div>
-              <Motion.p className="intro-subtitle" variants={prefersReducedMotion ? undefined : introItemMotion}>Preparando os rankings...</Motion.p>
+              <Motion.p className="intro-subtitle" variants={prefersReducedMotion ? undefined : introItemMotion}>Temporada Copa do Mundo. Preparando os rankings...</Motion.p>
             </Motion.div>
           </Motion.section>
         ) : (
@@ -1005,6 +1159,10 @@ function App() {
               <h1>{current.title}</h1>
             </div>
             <div className="rank-status">
+              <div className="status-pills" aria-label="Contexto visual do tema">
+                <span className="status-pill status-pill-active">Copa do Mundo</span>
+                <span className="status-pill">VieiraCred</span>
+              </div>
               <img className="brand-logo" src="/logo-vieira.webp" alt="VieiraCred" />
             </div>
           </div>
@@ -1020,7 +1178,7 @@ function App() {
                 {isBeforeStart
                   ? 'Estamos aguardando as primeiras vendas do dia. Bora movimentar o ranking!'
                   : hasTimeout
-                    ? 'Nao foi possivel carregar os dados. Verifique a API/Backend ou acione o time de planejamento.'
+                    ? 'Não foi possível carregar os dados. Verifique a API/Backend ou acione o time de planejamento.'
                     : 'Aguardando dados da API...'}
               </div>
             ) : (
@@ -1052,27 +1210,27 @@ function App() {
                     whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
                     whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                   >
-                    ◀
+                    <ControlIcon type="prev" />
                   </Motion.button>
                   <Motion.button
                     type="button"
                     className="nav-btn"
                     onClick={handleTogglePause}
                     aria-label="Pausar ou continuar"
-                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
+                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06, rotateZ: 4 }}
                     whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                   >
-                    {isPaused ? '▶' : '⏸'}
+                    <ControlIcon type={isPaused ? 'play' : 'pause'} />
                   </Motion.button>
                   <Motion.button
                     type="button"
                     className="nav-btn"
                     onClick={handleNext}
-                    aria-label="Proximo ranking"
-                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
+                    aria-label="Próximo ranking"
+                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06, rotateX: -2 }}
                     whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
                   >
-                    ▶
+                    <ControlIcon type="next" />
                   </Motion.button>
                 </div>
               ) : null}
@@ -1087,4 +1245,6 @@ function App() {
 }
 
 export default App
+
+
 
