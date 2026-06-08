@@ -18,7 +18,13 @@
   --muted: #6b6f76;
   --accent: #066eea;
   --accent-2: #2a75ff;
+  --accent-3: #1376eb;
   --accent-soft: #e8f0ff;
+  --field: #066eea;
+  --field-deep: #0a2e84;
+  --sun: #2a75ff;
+  --sky: #1376eb;
+  --line-soft: rgba(255, 255, 255, 0.16);
 }
 
 *,

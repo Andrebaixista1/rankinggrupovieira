@@ -1,5 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
 import './App.css'
+
+const pageMotion = {
+  initial: { opacity: 0, y: 18, scale: 0.985 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -14, scale: 0.99 },
+}
+
+const introContentMotion = {
+  initial: { opacity: 0, y: 16 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: 0.12,
+      duration: 0.55,
+      ease: 'easeOut',
+      staggerChildren: 0.12,
+    },
+  },
+  exit: { opacity: 0, y: -10 },
+}
+
+const introItemMotion = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+}
+
+const gridMotion = {
+  animate: {
+    transition: {
+      staggerChildren: 0.055,
+      delayChildren: 0.08,
+    },
+  },
+}
+
+const rowMotion = {
+  initial: { opacity: 0, x: -18 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: 18 },
+}
 
 const baseRankings = [
   {
@@ -47,6 +90,15 @@ const baseRankings = [
     limit: 10,
     rows: [],
   },
+  {
+    id: 'clt',
+    kicker: 'VENDAS',
+    title: 'Ranking TOP 10 CLT',
+    subtitle: 'Hoje',
+    description: 'Resultado do dia atual.',
+    limit: 10,
+    rows: [],
+  },
 ]
 
 const DIRECT_PRIMARY_API_URL = 'https://app.apivieiracred.com.br/webhook/ranking'
@@ -64,6 +116,9 @@ const NOVO_PRODUCTS = [
   'Cartao com Saque',
   'Margem Livre',
   'Cartao sem Saque',
+]
+const CLT_PRODUCTS = [
+  'CLT',
 ]
 const IMAGE_FIELD_CANDIDATES = [
   'imagem_perfil_url',
@@ -393,6 +448,7 @@ function buildProductSet(items) {
 
 const PORTABILIDADE_SET = buildProductSet(PORTABILIDADE_PRODUCTS)
 const NOVO_SET = buildProductSet(NOVO_PRODUCTS)
+const CLT_SET = buildProductSet(CLT_PRODUCTS)
 
 function filterRowsByProduct(rows, productKey, allowedSet) {
   if (!Array.isArray(rows) || !productKey || !allowedSet) return []
@@ -589,10 +645,20 @@ function buildRankingsFromRows(rows) {
     imageKey,
   })
 
+  const cltRows = filterRowsByProduct(safeRows, productKey, CLT_SET)
+  const clt = buildGroups(cltRows, vendorKey, equipeKey, {
+    multiLabel: 'VARIAS EQUIPES',
+    nameFormatter: formatVendorNameOnly,
+    metaFormatter: formatName,
+    valueKey,
+    imageKey,
+  })
+
   return assembleRankings({
     vendedores,
     portabilidade,
     novo,
+    clt,
     supervisores,
     gerentes,
   })
@@ -656,6 +722,7 @@ function buildRankingsFromLists(lists) {
     vendedores,
     portabilidade: [],
     novo: [],
+    clt: [],
     supervisores,
     gerentes,
   })
@@ -670,11 +737,12 @@ function App() {
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
-  const [updateMetrics, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
+  const [, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
   const activeIndexRef = useRef(0)
+  const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
     activeIndexRef.current = activeIndex
@@ -785,15 +853,22 @@ function App() {
     const rowValue = Number.isFinite(row.value) ? row.value : 0
     const share = safeTotalValue > 0 ? Math.round((rowValue / safeTotalValue) * 100) : 0
     const trendText = `${share}%`
-    const showAvatar = ['vendedores', 'portabilidade', 'novo'].includes(current.id)
+    const showAvatar = ['vendedores', 'portabilidade', 'novo', 'clt'].includes(current.id)
     const avatarInitial = row.name ? row.name.trim().charAt(0) : ''
     const trophyClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''
 
     return (
-      <article
+      <Motion.article
         key={`${current.id}-${row.name}`}
         className={`rank-row${trophyClass ? ' podium' : ''}${showAvatar ? ' with-avatar' : ''}`}
         style={{ '--delay': `${index * 80}ms` }}
+        variants={prefersReducedMotion ? undefined : rowMotion}
+        initial={prefersReducedMotion ? false : 'initial'}
+        animate={prefersReducedMotion ? undefined : 'animate'}
+        exit={prefersReducedMotion ? undefined : 'exit'}
+        transition={{ duration: 0.34, ease: 'easeOut' }}
+        whileHover={prefersReducedMotion ? undefined : { y: -2, scale: 1.01 }}
+        whileTap={prefersReducedMotion ? undefined : { scale: 0.995 }}
       >
         <div className="rank-pos-wrap">
           <div className="rank-pos">{String(index + 1).padStart(2, '0')}</div>
@@ -822,7 +897,7 @@ function App() {
           <div className="rank-value">{currencyFormatter.format(rowValue)}</div>
           <div className="rank-trend up">{trendText}</div>
         </div>
-      </article>
+      </Motion.article>
     )
   }
 
@@ -889,18 +964,41 @@ function App() {
   return (
     <div className="app">
       <main className="board">
+        <AnimatePresence mode="wait">
         {showIntro ? (
-          <section className="rank-card intro-screen has-gradient">
-            <div className="intro-content">
-              <p className="intro-title">Ranking Formalizado Grupo Vieira</p>
-              <div className="intro-logo">
+          <Motion.section
+            key="intro"
+            className="rank-card intro-screen has-gradient"
+            variants={prefersReducedMotion ? undefined : pageMotion}
+            initial={prefersReducedMotion ? false : 'initial'}
+            animate={prefersReducedMotion ? undefined : 'animate'}
+            exit={prefersReducedMotion ? undefined : 'exit'}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+          >
+            <Motion.div
+              className="intro-content"
+              variants={prefersReducedMotion ? undefined : introContentMotion}
+              initial={prefersReducedMotion ? false : 'initial'}
+              animate={prefersReducedMotion ? undefined : 'animate'}
+              exit={prefersReducedMotion ? undefined : 'exit'}
+            >
+              <Motion.p className="intro-title" variants={prefersReducedMotion ? undefined : introItemMotion}>Ranking Formalizado Grupo Vieira</Motion.p>
+              <Motion.div className="intro-logo" variants={prefersReducedMotion ? undefined : introItemMotion}>
                 <img src="/logo-vieira.webp" alt="VieiraCred" />
-              </div>
-              <p className="intro-subtitle">Preparando os rankings...</p>
-            </div>
-          </section>
+              </Motion.div>
+              <Motion.p className="intro-subtitle" variants={prefersReducedMotion ? undefined : introItemMotion}>Preparando os rankings...</Motion.p>
+            </Motion.div>
+          </Motion.section>
         ) : (
-        <section key={current.id} className="rank-card has-gradient">
+        <Motion.section
+          key={current.id}
+          className="rank-card has-gradient"
+          variants={prefersReducedMotion ? undefined : pageMotion}
+          initial={prefersReducedMotion ? false : 'initial'}
+          animate={prefersReducedMotion ? undefined : 'animate'}
+          exit={prefersReducedMotion ? undefined : 'exit'}
+          transition={{ duration: 0.42, ease: 'easeOut' }}
+        >
           <div className="rank-head">
             <div>
               <p className="eyebrow">{current.kicker}</p>
@@ -911,7 +1009,12 @@ function App() {
             </div>
           </div>
 
-          <div className={`rank-grid${['vendedores', 'portabilidade', 'novo', 'gerentes'].includes(current.id) ? ' vendors-grid' : ''}`}>
+          <Motion.div
+            className={`rank-grid${['vendedores', 'portabilidade', 'novo', 'clt', 'gerentes'].includes(current.id) ? ' vendors-grid' : ''}`}
+            variants={prefersReducedMotion ? undefined : gridMotion}
+            initial={prefersReducedMotion ? false : 'initial'}
+            animate={prefersReducedMotion ? undefined : 'animate'}
+          >
             {current.rows.length === 0 ? (
               <div className="empty-state">
                 {isBeforeStart
@@ -923,7 +1026,7 @@ function App() {
             ) : (
               current.rows.map((row, index) => renderRow(row, index))
             )}
-          </div>
+          </Motion.div>
 
           <div className="rank-footer">
             <div className="progress">
@@ -941,21 +1044,43 @@ function App() {
               <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido ao atraso da API.</p>
               {!showIntro ? (
                 <div className="nav-controls" aria-label="Controles do ranking">
-                  <button type="button" className="nav-btn" onClick={handlePrev} aria-label="Voltar ranking">
+                  <Motion.button
+                    type="button"
+                    className="nav-btn"
+                    onClick={handlePrev}
+                    aria-label="Voltar ranking"
+                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
+                    whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+                  >
                     ◀
-                  </button>
-                  <button type="button" className="nav-btn" onClick={handleTogglePause} aria-label="Pausar ou continuar">
+                  </Motion.button>
+                  <Motion.button
+                    type="button"
+                    className="nav-btn"
+                    onClick={handleTogglePause}
+                    aria-label="Pausar ou continuar"
+                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
+                    whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+                  >
                     {isPaused ? '▶' : '⏸'}
-                  </button>
-                  <button type="button" className="nav-btn" onClick={handleNext} aria-label="Proximo ranking">
+                  </Motion.button>
+                  <Motion.button
+                    type="button"
+                    className="nav-btn"
+                    onClick={handleNext}
+                    aria-label="Proximo ranking"
+                    whileHover={prefersReducedMotion ? undefined : { y: -1, scale: 1.06 }}
+                    whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+                  >
                     ▶
-                  </button>
+                  </Motion.button>
                 </div>
               ) : null}
             </div>
           </div>
-        </section>
+        </Motion.section>
         )}
+        </AnimatePresence>
       </main>
     </div>
   )

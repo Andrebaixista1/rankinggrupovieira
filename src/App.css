@@ -92,6 +92,10 @@
   background: linear-gradient(180deg, #056EEA 0%, #ffffff 65%);
 }
 
+.intro-screen.has-gradient {
+  background: linear-gradient(160deg, #056EEA 0%, #1376EB 54%, #2a75ff 100%);
+}
+
 .intro-screen {
   align-items: center;
   justify-content: center;
@@ -120,13 +124,14 @@
   font-weight: 800;
   font-family: var(--display-font);
   margin: 0;
-  color: #1c1c1c;
+  color: #ffffff;
+  text-shadow: 0 8px 24px rgba(6, 110, 234, 0.38);
 }
 
 .intro-subtitle {
   margin: 0;
   font-size: 1.05rem;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .update-screen {
@@ -245,6 +250,7 @@
   font-family: var(--display-font);
   font-weight: 800;
   color: #ffffff;
+  text-shadow: 0 8px 22px rgba(6, 110, 234, 0.36);
 }
 
 .rank-status {
@@ -301,7 +307,7 @@
   align-items: center;
   gap: 16px;
   padding: 12px 14px;
-  border-radius: 20px;
+  border-radius: 18px;
   background: #ffffff;
   border: 1px solid #e6ebf5;
   box-shadow: 0 12px 24px rgba(16, 36, 84, 0.08);
@@ -328,7 +334,7 @@
 .rank-pos {
   width: clamp(44px, 5vh, 56px);
   height: clamp(44px, 5vh, 56px);
-  border-radius: 16px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -587,7 +593,7 @@
 
 .panel-card {
   padding: 22px;
-  border-radius: 22px;
+  border-radius: 20px;
   background: #ffffff;
   border: 1px solid #e2e6ef;
   box-shadow: 0 16px 30px rgba(16, 36, 84, 0.1);
