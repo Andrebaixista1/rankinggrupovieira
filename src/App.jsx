@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
 import './App.css'
 
@@ -769,6 +769,28 @@ function buildRankingsFromLists(lists) {
   })
 }
 
+function getFutPosition(rankingId) {
+  if (rankingId === 'vendedores') return 'VND'
+  if (rankingId === 'portabilidade') return 'PRT'
+  if (rankingId === 'novo') return 'NV'
+  if (rankingId === 'clt') return 'CLT'
+  if (rankingId === 'supervisores') return 'SUP'
+  if (rankingId === 'gerentes') return 'GER'
+  return 'VND'
+}
+
+function formatFutValue(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num) || num <= 0) return '0'
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1).replace('.0', '')}M`
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1).replace('.0', '')}K`
+  }
+  return String(num)
+}
+
 function App() {
   const [rankings, setRankings] = useState(baseRankings)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -1078,46 +1100,7 @@ function App() {
         <div className="flag-hero" aria-hidden="true">
           <img src="/instituto-mix-banner.png" alt="" />
         </div>
-        <AnimatePresence>
-          {showSpotlight && spotlightRow ? (
-            <Motion.div
-              key={`spotlight-${spotlightRankingId}`}
-              className="spotlight-overlay"
-              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0.18 : 0.28, ease: 'easeOut' }}
-              role="presentation"
-              onClick={closeSpotlight}
-            >
-              <Motion.section
-                className="spotlight-card"
-                onClick={(event) => event.stopPropagation()}
-                initial={prefersReducedMotion ? { scale: 1 } : { scale: 0.92, y: 20, rotateX: 12 }}
-                animate={prefersReducedMotion ? { scale: 1 } : { scale: 1, y: 0, rotateX: 0 }}
-                exit={prefersReducedMotion ? { scale: 1 } : { scale: 0.95, y: -10, rotateX: -8 }}
-                transition={{ duration: prefersReducedMotion ? 0.18 : 0.32, ease: 'easeOut' }}
-              >
-                <p className="spotlight-kicker">1º lugar do ranking</p>
-                <div className="spotlight-rank">
-                  <div className="spotlight-badge">01</div>
-                  <div className="spotlight-copy">
-                    <div className="spotlight-photo">
-                      {spotlightRow.image ? (
-                        <img src={spotlightRow.image} alt={spotlightRow.name} loading="lazy" />
-                      ) : (
-                        <div className="spotlight-photo-fallback">{spotlightRow.name?.trim().charAt(0) || '1'}</div>
-                      )}
-                    </div>
-                    <div className="spotlight-name">{spotlightRow.name}</div>
-                    {spotlightRow.meta ? <div className="spotlight-meta">{spotlightRow.meta}</div> : null}
-                  </div>
-                </div>
-                <div className="spotlight-value">{currencyFormatter.format(spotlightRow.value || 0)}</div>
-              </Motion.section>
-            </Motion.div>
-          ) : null}
-        </AnimatePresence>
+        {/* Modal Spotlight removido aguardando nova ideia */}
         <AnimatePresence mode="wait">
         {showIntro ? (
           <Motion.section
@@ -1138,7 +1121,7 @@ function App() {
             >
               <Motion.p className="intro-title" variants={prefersReducedMotion ? undefined : introItemMotion}>Ranking Formalizado Grupo Vieira</Motion.p>
               <Motion.div className="intro-logo" variants={prefersReducedMotion ? undefined : introItemMotion}>
-                <img src="/logo-vieira.webp" alt="VieiraCred" />
+                <img src="/logo-vieira-copa.png" alt="VieiraCred" />
               </Motion.div>
               <Motion.p className="intro-subtitle" variants={prefersReducedMotion ? undefined : introItemMotion}>Temporada Copa do Mundo. Preparando os rankings...</Motion.p>
             </Motion.div>
@@ -1163,7 +1146,7 @@ function App() {
                 <span className="status-pill status-pill-active">Copa do Mundo</span>
                 <span className="status-pill">VieiraCred</span>
               </div>
-              <img className="brand-logo" src="/logo-vieira.webp" alt="VieiraCred" />
+              <img className="brand-logo" src="/logo-vieira-copa.png" alt="VieiraCred" />
             </div>
           </div>
 
