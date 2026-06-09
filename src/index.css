@@ -33,6 +33,7 @@ body {
   background: linear-gradient(90deg, #009b3a 50%, #fedf00 50%);
   position: relative;
   overflow: hidden;
+  z-index: 0; /* Creates stacking context so pseudo-elements are above background */
 }
 
 body::before,
@@ -43,14 +44,14 @@ body::after {
 }
 
 body::before {
-  inset: 20px;
-  border: 4px solid rgba(255, 255, 255, 0.45);
+  inset: 24px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
   border-radius: 8px;
   z-index: -1;
   background: 
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,0.45) 8px, transparent 9px),
-    radial-gradient(circle at 50% 50%, transparent 100px, rgba(255,255,255,0.45) 100px, rgba(255,255,255,0.45) 104px, transparent 104px),
-    linear-gradient(90deg, transparent calc(50% - 2px), rgba(255,255,255,0.45) calc(50% - 2px), rgba(255,255,255,0.45) calc(50% + 2px), transparent calc(50% + 2px));
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.9) 8px, transparent 9px),
+    radial-gradient(circle at 50% 50%, transparent 100px, rgba(255, 255, 255, 0.9) 100px, rgba(255, 255, 255, 0.9) 104px, transparent 104px),
+    linear-gradient(90deg, transparent calc(50% - 2px), rgba(255, 255, 255, 0.9) calc(50% - 2px), rgba(255, 255, 255, 0.9) calc(50% + 2px), transparent calc(50% + 2px));
 }
 
 body::after {
@@ -63,6 +64,54 @@ body::after {
     transparent 40px,
     transparent 80px
   );
+}
+
+/* Left Grande e Pequena Área + Penalty Spot */
+#root::before {
+  content: '';
+  position: fixed;
+  top: 50%;
+  left: 24px;
+  transform: translateY(-50%);
+  width: 150px;
+  height: 320px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-left: none;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    /* Top line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 0 90px / 50px 4px no-repeat,
+    /* Bottom line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 0 226px / 50px 4px no-repeat,
+    /* Right line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 46px 90px / 4px 140px no-repeat,
+    /* Penalty Spot */
+    radial-gradient(circle at 100px 160px, rgba(255, 255, 255, 0.9) 4px, transparent 5px) no-repeat;
+}
+
+/* Right Grande e Pequena Área + Penalty Spot */
+#root::after {
+  content: '';
+  position: fixed;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  width: 150px;
+  height: 320px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-right: none;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    /* Top line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 90px / 50px 4px no-repeat,
+    /* Bottom line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 226px / 50px 4px no-repeat,
+    /* Left line pequena área */
+    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 90px / 4px 140px no-repeat,
+    /* Penalty Spot */
+    radial-gradient(circle at 50px 160px, rgba(255, 255, 255, 0.9) 4px, transparent 5px) no-repeat;
 }
 
 a {

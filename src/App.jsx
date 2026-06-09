@@ -1097,9 +1097,7 @@ function App() {
   return (
     <div className="app">
       <main className="board">
-        <div className="flag-hero" aria-hidden="true">
-          <img src="/instituto-mix-banner.png" alt="" />
-        </div>
+
         {/* Modal Spotlight removido aguardando nova ideia */}
         <AnimatePresence mode="wait">
         {showIntro ? (
