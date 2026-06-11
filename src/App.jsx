@@ -161,6 +161,12 @@ const NOVO_PRODUCTS = [
 const CLT_PRODUCTS = [
   'CLT',
 ]
+const SPOTLIGHT_LABELS = {
+  vendedores: 'Vendedores',
+  portabilidade: 'Portabilidade',
+  novo: 'Novo',
+  clt: 'CLT',
+}
 const IMAGE_FIELD_CANDIDATES = [
   'imagem_perfil_url',
   'imagem_perfil',
@@ -1094,11 +1100,22 @@ function App() {
     setIsPaused((prev) => !prev)
   }
 
+  useEffect(() => {
+    if (!showSpotlight) return undefined
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeSpotlight()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [closeSpotlight, showSpotlight])
+
   return (
     <div className="app">
       <main className="board">
-
-        {/* Modal Spotlight removido aguardando nova ideia */}
         <AnimatePresence mode="wait">
         {showIntro ? (
           <Motion.section
@@ -1219,6 +1236,78 @@ function App() {
           </div>
         </Motion.section>
         )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showSpotlight && spotlightRow ? (
+            <Motion.section
+              key={`spotlight-${spotlightRankingId}`}
+              className="spotlight-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Destaque do ranking ${SPOTLIGHT_LABELS[spotlightRankingId] || 'Grupo Vieira'}`}
+              variants={prefersReducedMotion ? undefined : {
+                initial: { opacity: 0 },
+                animate: {
+                  opacity: 1,
+                  transition: { duration: 0.18, ease: 'easeOut' },
+                },
+                exit: {
+                  opacity: 0,
+                  transition: { duration: 0.14, ease: 'easeIn' },
+                },
+              }}
+              initial={prefersReducedMotion ? false : 'initial'}
+              animate={prefersReducedMotion ? undefined : 'animate'}
+              exit={prefersReducedMotion ? undefined : 'exit'}
+            >
+              <Motion.div
+                className="spotlight-shell"
+                variants={prefersReducedMotion ? undefined : {
+                  initial: { opacity: 0, y: 22, scale: 0.985 },
+                  animate: {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    transition: { duration: 0.28, ease: 'easeOut' },
+                  },
+                  exit: {
+                    opacity: 0,
+                    y: 10,
+                    scale: 0.99,
+                    transition: { duration: 0.16, ease: 'easeIn' },
+                  },
+                }}
+                initial={prefersReducedMotion ? false : 'initial'}
+                animate={prefersReducedMotion ? undefined : 'animate'}
+                exit={prefersReducedMotion ? undefined : 'exit'}
+              >
+                <div className="spotlight-poster">
+                  <div className="spotlight-poster-art" aria-hidden="true" />
+
+                  <div className="spotlight-player-slot" aria-hidden="true">
+                    {spotlightRow.image ? (
+                      <img src={spotlightRow.image} alt="" loading="eager" />
+                    ) : (
+                      <div className="spotlight-player-fallback">
+                        {spotlightRow.name ? spotlightRow.name.trim().charAt(0) : '1'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="spotlight-winner-card">
+                    <div className="spotlight-winner-copy">
+                      <p className="spotlight-kicker">1º lugar</p>
+                      <h2>{spotlightRow.name}</h2>
+                      {spotlightRow.meta ? <p className="spotlight-meta">{spotlightRow.meta}</p> : null}
+                      <strong>{currencyFormatter.format(Number.isFinite(spotlightRow.value) ? spotlightRow.value : 0)}</strong>
+                    </div>
+                  </div>
+
+                </div>
+              </Motion.div>
+            </Motion.section>
+          ) : null}
         </AnimatePresence>
       </main>
     </div>
