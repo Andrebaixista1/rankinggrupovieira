@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
+import gsap from 'gsap'
 import { WORLD_CUP_FLAG_PATHS } from './worldcupFlagPaths'
 import './App.css'
 
@@ -163,6 +164,15 @@ const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_A
 const WORLD_CUP_GAMES_API_URL = import.meta.env.PROD ? '/api/worldcup-games' : '/api/worldcup-games'
 const WORLD_CUP_STADIUMS_API_URL = '/api/worldcup-stadiums'
 const ROTATION_INTERVAL = 30000
+const WORLD_CUP_GAMES_POLL_INTERVAL = 30000
+const WORLD_CUP_API_RETRY_COUNT = 2
+const WORLD_CUP_API_RETRY_DELAY_MS = 900
+const GOAL_MODAL_DURATION = 7000
+const GOAL_FIREWORK_PARTICLES = Array.from({ length: 18 }, (_, index) => ({
+  id: `goal-spark-${index}`,
+  angle: index * 20,
+  distance: 104 + ((index % 4) * 26),
+}))
 const PORTABILIDADE_PRODUCTS = [
   'PORTABILIDADE',
 ]
@@ -537,6 +547,109 @@ function formatGameStatus(game) {
   return 'Não iniciado'
 }
 
+function isLiveGame(game) {
+  return formatGameStatus(game) === 'Ao vivo'
+}
+
+function parseGoalMinute(value) {
+  const match = String(value || '').match(/(\d+)(?:\s*\+\s*(\d+))?\s*'/)
+  if (!match) {
+    return { label: '', value: -1 }
+  }
+
+  const baseMinute = Number.parseInt(match[1], 10)
+  const stoppageMinute = Number.parseInt(match[2] || '0', 10)
+  return {
+    label: `${baseMinute}${stoppageMinute ? `+${stoppageMinute}` : ''}'`,
+    value: baseMinute + (stoppageMinute / 100),
+  }
+}
+
+function parseScorerEntries(value) {
+  const rawValue = String(value ?? '').trim()
+  if (!rawValue || rawValue.toLowerCase() === 'null') {
+    return []
+  }
+
+  const normalizedValue = rawValue
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/^\{/, '')
+    .replace(/\}$/, '')
+
+  const quotedEntries = [...normalizedValue.matchAll(/"([^"]+)"/g)].map((match) => match[1])
+  const rawEntries = quotedEntries.length ? quotedEntries : normalizedValue.split(',')
+
+  return rawEntries
+    .map((entry) => entry.replace(/^["']|["']$/g, '').trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const minute = parseGoalMinute(entry)
+      const player = entry
+        .replace(/\s+\d+(?:\s*\+\s*\d+)?\s*'.*$/, '')
+        .trim()
+
+      return {
+        player: player || entry,
+        minuteLabel: minute.label,
+        minuteValue: minute.value,
+      }
+    })
+}
+
+function collectLiveGoalEvents(games) {
+  const events = []
+
+  games
+    .filter(isLiveGame)
+    .forEach((game) => {
+      const homeTeam = resolveCountryDisplayName(game?.home_team_name || game?.home_team_name_en || game?.home_team || 'Mandante')
+      const awayTeam = resolveCountryDisplayName(game?.away_team_name || game?.away_team_name_en || game?.away_team || 'Visitante')
+      const homeScore = Number.isFinite(Number(game?.home_score)) ? Number(game.home_score) : 0
+      const awayScore = Number.isFinite(Number(game?.away_score)) ? Number(game.away_score) : 0
+      const gameId = String(game?.id || game?._id || `${homeTeam}-${awayTeam}-${game?.local_date || ''}`)
+      const matchLabel = `${homeTeam} ${homeScore} x ${awayScore} ${awayTeam}`
+
+      parseScorerEntries(game?.home_scorers).forEach((goal, index) => {
+        events.push({
+          ...goal,
+          id: `${gameId}-home-${goal.player}-${goal.minuteLabel}-${index}`,
+          gameId,
+          teamName: homeTeam,
+          matchLabel,
+          side: 'home',
+          sourceIndex: events.length,
+        })
+      })
+
+      parseScorerEntries(game?.away_scorers).forEach((goal, index) => {
+        events.push({
+          ...goal,
+          id: `${gameId}-away-${goal.player}-${goal.minuteLabel}-${index}`,
+          gameId,
+          teamName: awayTeam,
+          matchLabel,
+          side: 'away',
+          sourceIndex: events.length,
+        })
+      })
+    })
+
+  return events.sort((left, right) => {
+    if (right.minuteValue !== left.minuteValue) {
+      return right.minuteValue - left.minuteValue
+    }
+
+    return right.sourceIndex - left.sourceIndex
+  })
+}
+
+function buildGoalEventsSignature(events) {
+  return events
+    .map((event) => `${event.gameId}:${event.side}:${event.player}:${event.minuteLabel}`)
+    .join('|')
+}
+
 function filterTodayGames(payload, referenceDate = new Date()) {
   const games = Array.isArray(payload?.games) ? payload.games : []
   const todayKey = formatApiDateKey(referenceDate)
@@ -550,7 +663,7 @@ function filterTodayGames(payload, referenceDate = new Date()) {
     })
 }
 
-async function fetchJson(baseUrl) {
+async function fetchJsonOnce(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
   if (!requestUrl) {
     throw new Error('URL da API não definida')
@@ -565,6 +678,32 @@ async function fetchJson(baseUrl) {
   } catch {
     throw new Error('Resposta da API não é JSON válido')
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+async function fetchJson(baseUrl, options = {}) {
+  const retries = Number.isFinite(options.retries) ? Math.max(0, options.retries) : 0
+  const retryDelayMs = Number.isFinite(options.retryDelayMs) ? Math.max(0, options.retryDelayMs) : 0
+  let lastError
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchJsonOnce(baseUrl)
+    } catch (error) {
+      lastError = error
+      if (attempt >= retries) break
+      if (retryDelayMs > 0) {
+        await delay(retryDelayMs)
+      }
+    }
+  }
+
+  throw lastError
 }
 
 function normalizeMeta(value) {
@@ -1045,9 +1184,14 @@ function App() {
   const fetchInFlightRef = useRef(null)
   const activeIndexRef = useRef(0)
   const spotlightTimerRef = useRef(null)
+  const goalModalTimerRef = useRef(null)
+  const goalModalShellRef = useRef(null)
+  const lastGoalSignatureRef = useRef('')
   const [showSpotlight, setShowSpotlight] = useState(false)
   const [spotlightRankingId, setSpotlightRankingId] = useState('')
   const [spotlightRow, setSpotlightRow] = useState(null)
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [goalEvents, setGoalEvents] = useState([])
   const [worldCupGamesLoading, setWorldCupGamesLoading] = useState(false)
   const [worldCupGamesReady, setWorldCupGamesReady] = useState(false)
   const [worldCupGamesError, setWorldCupGamesError] = useState(false)
@@ -1162,13 +1306,19 @@ function App() {
     if (current.id !== 'worldcup-games') return undefined
 
     let cancelled = false
+    let requestInFlight = false
 
     const loadGames = async () => {
+      if (requestInFlight) return
+      requestInFlight = true
       setWorldCupGamesLoading(true)
       setWorldCupGamesError(false)
 
       try {
-        const payload = await fetchJson(WORLD_CUP_GAMES_API_URL)
+        const payload = await fetchJson(WORLD_CUP_GAMES_API_URL, {
+          retries: WORLD_CUP_API_RETRY_COUNT,
+          retryDelayMs: WORLD_CUP_API_RETRY_DELAY_MS,
+        })
         if (cancelled || !isMountedRef.current) return
 
         const todayGames = filterTodayGames(payload, new Date())
@@ -1186,6 +1336,7 @@ function App() {
         setWorldCupGamesReady(false)
         setWorldCupGamesError(true)
       } finally {
+        requestInFlight = false
         if (!cancelled && isMountedRef.current) {
           setWorldCupGamesLoading(false)
         }
@@ -1193,9 +1344,11 @@ function App() {
     }
 
     loadGames()
+    const interval = setInterval(loadGames, WORLD_CUP_GAMES_POLL_INTERVAL)
 
     return () => {
       cancelled = true
+      clearInterval(interval)
     }
   }, [current.id, todayKey])
 
@@ -1208,7 +1361,10 @@ function App() {
       setWorldCupStadiumsError(false)
 
       try {
-        const payload = await fetchJson(WORLD_CUP_STADIUMS_API_URL)
+        const payload = await fetchJson(WORLD_CUP_STADIUMS_API_URL, {
+          retries: WORLD_CUP_API_RETRY_COUNT,
+          retryDelayMs: WORLD_CUP_API_RETRY_DELAY_MS,
+        })
         if (cancelled || !isMountedRef.current) return
 
         const stadiums = Array.isArray(payload?.stadiums) ? payload.stadiums : []
@@ -1237,7 +1393,7 @@ function App() {
   }, [current.id, worldCupStadiumsReady])
 
   const hasData = rankings.some((item) => item.rows.length > 0)
-  const canRotate = hasData && !isLoading && !isPaused && !showIntro && (current.id !== 'worldcup-games' || worldCupGamesReady)
+  const canRotate = hasData && !isLoading && !isPaused && !showIntro && !showGoalModal && (current.id !== 'worldcup-games' || worldCupGamesReady)
   const totalValue = current.rows.reduce(
     (sum, row) => sum + (Number.isFinite(row.value) ? row.value : 0),
     0,
@@ -1253,11 +1409,24 @@ function App() {
     }
   }, [])
 
+  const clearGoalModalTimer = useCallback(() => {
+    if (goalModalTimerRef.current) {
+      clearTimeout(goalModalTimerRef.current)
+      goalModalTimerRef.current = null
+    }
+  }, [])
+
   const closeSpotlight = useCallback(() => {
     clearSpotlightTimer()
     setShowSpotlight(false)
     setSpotlightRow(null)
   }, [clearSpotlightTimer])
+
+  const closeGoalModal = useCallback(() => {
+    clearGoalModalTimer()
+    setShowGoalModal(false)
+    setGoalEvents([])
+  }, [clearGoalModalTimer])
 
   const openSpotlightForRanking = useCallback((ranking) => {
     clearSpotlightTimer()
@@ -1284,6 +1453,124 @@ function App() {
       clearSpotlightTimer()
     }
   }, [clearSpotlightTimer])
+
+  useEffect(() => {
+    return () => {
+      clearGoalModalTimer()
+    }
+  }, [clearGoalModalTimer])
+
+  useEffect(() => {
+    if (current.id !== 'worldcup-games' || !worldCupGamesReady || !current.rows.length) {
+      closeGoalModal()
+      lastGoalSignatureRef.current = ''
+      return undefined
+    }
+
+    const liveGoalEvents = collectLiveGoalEvents(current.rows)
+    const nextSignature = buildGoalEventsSignature(liveGoalEvents)
+
+    if (!nextSignature) {
+      closeGoalModal()
+      lastGoalSignatureRef.current = ''
+      return undefined
+    }
+
+    if (nextSignature === lastGoalSignatureRef.current) {
+      return undefined
+    }
+
+    lastGoalSignatureRef.current = nextSignature
+    clearGoalModalTimer()
+    setGoalEvents(liveGoalEvents)
+    setShowGoalModal(true)
+
+    goalModalTimerRef.current = setTimeout(() => {
+      setShowGoalModal(false)
+      setGoalEvents([])
+      goalModalTimerRef.current = null
+    }, GOAL_MODAL_DURATION)
+
+    return undefined
+  }, [
+    clearGoalModalTimer,
+    closeGoalModal,
+    current.id,
+    current.rows,
+    worldCupGamesReady,
+  ])
+
+  useEffect(() => {
+    if (!showGoalModal || !goalEvents.length || prefersReducedMotion) return undefined
+
+    const ctx = gsap.context(() => {
+      const timeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
+
+      timeline
+        .set('.goal-firework-spark', { autoAlpha: 0, x: 0, y: 0, scale: 0.4 })
+        .fromTo(
+          '.goal-callout',
+          { autoAlpha: 0, y: 16, scale: 0.82 },
+          { autoAlpha: 1, y: 0, scale: 1, duration: 0.22, ease: 'back.out(1.6)' },
+          0.02,
+        )
+        .to(
+          '.goal-firework-spark',
+          { autoAlpha: 1, scale: 1, duration: 0.08, stagger: 0.012 },
+          0.04,
+        )
+        .to(
+          '.goal-firework-spark',
+          {
+            x: (_index, target) => {
+              const angle = (Number(target.dataset.angle) * Math.PI) / 180
+              return Math.cos(angle) * Number(target.dataset.distance)
+            },
+            y: (_index, target) => {
+              const angle = (Number(target.dataset.angle) * Math.PI) / 180
+              return Math.sin(angle) * Number(target.dataset.distance)
+            },
+            autoAlpha: 0,
+            scale: 0,
+            duration: 0.62,
+            stagger: 0.012,
+            ease: 'power2.out',
+          },
+          0.06,
+        )
+        .to(
+          '.goal-callout',
+          { autoAlpha: 0, y: -10, scale: 1.08, duration: 0.28, ease: 'power2.in' },
+          0.82,
+        )
+        .fromTo(
+          '.goal-modal-card',
+          { autoAlpha: 0, y: 34, scale: 0.92, rotateX: 8, transformOrigin: '50% 55%' },
+          { autoAlpha: 1, y: 0, scale: 1, rotateX: 0, duration: 0.34 },
+          0.12,
+        )
+        .fromTo(
+          '.goal-modal-kicker, .goal-modal-card h2',
+          { autoAlpha: 0, y: 12 },
+          { autoAlpha: 1, y: 0, duration: 0.24, stagger: 0.05 },
+          '-=0.16',
+        )
+        .fromTo(
+          '.goal-item',
+          { autoAlpha: 0, y: 20, scale: 0.97 },
+          { autoAlpha: 1, y: 0, scale: 1, duration: 0.28, stagger: 0.07 },
+          '-=0.1',
+        )
+        .fromTo(
+          '.goal-minute',
+          { scale: 0.65, rotate: -6 },
+          { scale: 1, rotate: 0, duration: 0.32, stagger: 0.07, ease: 'back.out(1.8)' },
+          '-=0.26',
+        )
+    }, goalModalShellRef)
+
+    return () => ctx.revert()
+  }, [goalEvents.length, prefersReducedMotion, showGoalModal])
 
   useEffect(() => {
     if (showIntro || isLoading || !hasData) {
@@ -1382,6 +1669,12 @@ function App() {
     const gameTime = saoPauloTime
     const homeFlagUrl = resolveWorldCupFlagUrl(game?.home_team_name_en || '')
     const awayFlagUrl = resolveWorldCupFlagUrl(game?.away_team_name_en || '')
+    const statusLabel = formatGameStatus(game)
+    const statusClass = statusLabel === 'Encerrado'
+      ? 'is-finished'
+      : statusLabel === 'Ao vivo'
+        ? 'is-live'
+        : 'is-scheduled'
     const renderFlag = (flagUrl, teamName) => (
       flagUrl ? (
         <img
@@ -1425,23 +1718,15 @@ function App() {
         <div className="game-details">
           <span className="game-stadium">{stadiumName}{stadiumCity}</span>
         </div>
-        <div
-          className={`game-status ${
-            String(game?.finished).toLowerCase() === 'true'
-              ? 'is-finished'
-              : String(game?.started).toLowerCase() === 'true'
-                ? 'is-live'
-                : 'is-scheduled'
-          }`}
-        >
-          {formatGameStatus(game)}
+        <div className={`game-status ${statusClass}`}>
+          {statusLabel}
         </div>
       </Motion.article>
     )
   }
 
   useEffect(() => {
-    if (!hasData || showIntro || isPaused || showSpotlight) {
+    if (!hasData || showIntro || isPaused || showSpotlight || showGoalModal) {
       return undefined
     }
 
@@ -1461,7 +1746,7 @@ function App() {
     }, ROTATION_INTERVAL)
 
     return () => clearTimeout(timer)
-  }, [activeIndex, fetchData, hasData, isPaused, openSpotlightForRanking, rankings, showIntro, showSpotlight])
+  }, [activeIndex, fetchData, hasData, isPaused, openSpotlightForRanking, rankings, showGoalModal, showIntro, showSpotlight])
 
   useEffect(() => {
     if (hasData) {
@@ -1503,17 +1788,18 @@ function App() {
   }
 
   useEffect(() => {
-    if (!showSpotlight) return undefined
+    if (!showSpotlight && !showGoalModal) return undefined
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         closeSpotlight()
+        closeGoalModal()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [closeSpotlight, showSpotlight])
+  }, [closeGoalModal, closeSpotlight, showGoalModal, showSpotlight])
 
   return (
     <div className="app">
@@ -1584,12 +1870,6 @@ function App() {
                 </div>
               ) : (
                 <div className="games-table">
-                  <div className="games-table-head">
-                    <span>Horário</span>
-                    <span>Casa</span>
-                    <span>Fora</span>
-                    <span>Status</span>
-                  </div>
                   <div className="games-table-body">
                     {current.rows.map((game, index) => renderGameRow(game, index))}
                   </div>
@@ -1732,6 +2012,83 @@ function App() {
                     </div>
                   </div>
 
+                </div>
+              </Motion.div>
+            </Motion.section>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showGoalModal && goalEvents.length ? (
+            <Motion.section
+              key="goal-modal"
+              className="spotlight-overlay goal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Gols ao vivo"
+              variants={prefersReducedMotion ? undefined : {
+                initial: { opacity: 0 },
+                animate: {
+                  opacity: 1,
+                  transition: { duration: 0.18, ease: 'easeOut' },
+                },
+                exit: {
+                  opacity: 0,
+                  transition: { duration: 0.14, ease: 'easeIn' },
+                },
+              }}
+              initial={prefersReducedMotion ? false : 'initial'}
+              animate={prefersReducedMotion ? undefined : 'animate'}
+              exit={prefersReducedMotion ? undefined : 'exit'}
+            >
+              <div className="goal-fireworks" aria-hidden="true">
+                <div className="goal-callout">GOOOL!</div>
+                {GOAL_FIREWORK_PARTICLES.map((particle) => (
+                  <span
+                    className="goal-firework-spark"
+                    data-angle={particle.angle}
+                    data-distance={particle.distance}
+                    key={particle.id}
+                  />
+                ))}
+              </div>
+              <Motion.div
+                ref={goalModalShellRef}
+                className="goal-modal-shell"
+                variants={prefersReducedMotion ? undefined : {
+                  initial: { opacity: 0, y: 18, scale: 0.985 },
+                  animate: {
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                    transition: { duration: 0.26, ease: 'easeOut' },
+                  },
+                  exit: {
+                    opacity: 0,
+                    y: 10,
+                    scale: 0.99,
+                    transition: { duration: 0.16, ease: 'easeIn' },
+                  },
+                }}
+                initial={prefersReducedMotion ? false : 'initial'}
+                animate={prefersReducedMotion ? undefined : 'animate'}
+                exit={prefersReducedMotion ? undefined : 'exit'}
+              >
+                <div className="goal-modal-card">
+                  <p className="goal-modal-kicker">Gol ao vivo</p>
+                  <h2>Atualização do placar</h2>
+                  <div className="goal-list">
+                    {goalEvents.map((goal) => (
+                      <article className="goal-item" key={goal.id}>
+                        <span className="goal-minute">{goal.minuteLabel || 'Gol'}</span>
+                        <div className="goal-copy">
+                          <strong>{goal.player}</strong>
+                          <span>{goal.teamName}</span>
+                          <small>{goal.matchLabel}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
                 </div>
               </Motion.div>
             </Motion.section>
