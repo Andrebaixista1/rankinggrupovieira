@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion as Motion, useReducedMotion } from 'framer-motion'
+import { WORLD_CUP_FLAG_PATHS } from './worldcupFlagPaths'
 import './App.css'
 
 const pageMotion = {
@@ -114,6 +115,15 @@ const baseRankings = [
     limit: 10,
     rows: [],
   },
+  {
+    id: 'worldcup-games',
+    kicker: 'MUNDIAL',
+    title: 'Jogos de Hoje - Ao Vivo',
+    subtitle: 'Hoje',
+    description: 'Tabela dos jogos e placares do dia.',
+    limit: null,
+    rows: [],
+  },
 ]
 
 function ControlIcon({ type }) {
@@ -150,7 +160,8 @@ function ControlIcon({ type }) {
 
 const DIRECT_PRIMARY_API_URL = 'https://app.apivieiracred.com.br/webhook/ranking'
 const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_API_URL
-const UPDATE_METRICS_API_URL = '/api/update-metrics'
+const WORLD_CUP_GAMES_API_URL = import.meta.env.PROD ? '/api/worldcup-games' : '/api/worldcup-games'
+const WORLD_CUP_STADIUMS_API_URL = '/api/worldcup-stadiums'
 const ROTATION_INTERVAL = 30000
 const PORTABILIDADE_PRODUCTS = [
   'PORTABILIDADE',
@@ -176,15 +187,368 @@ const IMAGE_FIELD_CANDIDATES = [
   'avatar',
   'profile_image',
 ]
+const COUNTRY_ALIAS_MAP = {
+  'cote d ivoire': "Côte d'Ivoire",
+  'cote divoire': "Côte d'Ivoire",
+  'ivory coast': "Côte d'Ivoire",
+  'south korea': 'Korea, Republic of',
+  korea: 'Korea, Republic of',
+  'north korea': "Korea, Democratic People's Republic of",
+  'czech republic': 'Czech Republic',
+  'bosnia and herzegovina': 'Bosnia and Herzegovina',
+  'united states': 'United States',
+  usa: 'United States',
+  'united states of america': 'United States',
+  'democratic republic of the congo': 'Congo, The Democratic Republic of the',
+  'republic of the congo': 'Congo',
+  'cape verde': 'Cabo Verde',
+  'saudi arabia': 'Saudi Arabia',
+  'new zealand': 'New Zealand',
+  'ivory coast ': "Côte d'Ivoire",
+}
+const COUNTRY_DISPLAY_CODE_MAP = new Map([
+  ['Côte d\'Ivoire', 'CI'],
+  ['Korea, Republic of', 'KR'],
+  ['Korea, Democratic People\'s Republic of', 'KP'],
+  ['Czech Republic', 'CZ'],
+  ['Bosnia and Herzegovina', 'BA'],
+  ['United States', 'US'],
+  ['Congo, The Democratic Republic of the', 'CD'],
+  ['Congo', 'CG'],
+  ['Cabo Verde', 'CV'],
+  ['Saudi Arabia', 'SA'],
+  ['New Zealand', 'NZ'],
+  ['Mexico', 'MX'],
+  ['Canada', 'CA'],
+  ['Argentina', 'AR'],
+  ['Brazil', 'BR'],
+  ['Uruguay', 'UY'],
+  ['Chile', 'CL'],
+  ['Colombia', 'CO'],
+  ['Ecuador', 'EC'],
+  ['Peru', 'PE'],
+  ['Paraguay', 'PY'],
+  ['Bolivia', 'BO'],
+  ['Venezuela', 'VE'],
+  ['South Africa', 'ZA'],
+  ['Morocco', 'MA'],
+  ['Algeria', 'DZ'],
+  ['Tunisia', 'TN'],
+  ['Egypt', 'EG'],
+  ['Ghana', 'GH'],
+  ['Nigeria', 'NG'],
+  ['Senegal', 'SN'],
+  ['Cameroon', 'CM'],
+  ['Costa Rica', 'CR'],
+  ['Panama', 'PA'],
+  ['Honduras', 'HN'],
+  ['Guatemala', 'GT'],
+  ['El Salvador', 'SV'],
+  ['Jamaica', 'JM'],
+  ['Trinidad and Tobago', 'TT'],
+  ['Haiti', 'HT'],
+  ['Dominican Republic', 'DO'],
+  ['Japan', 'JP'],
+  ['China', 'CN'],
+  ['Chinese Taipei', 'TW'],
+  ['Australia', 'AU'],
+  ['Iran', 'IR'],
+  ['Iraq', 'IQ'],
+  ['Qatar', 'QA'],
+  ['UAE', 'AE'],
+  ['United Arab Emirates', 'AE'],
+  ['Oman', 'OM'],
+  ['Kyrgyz Republic', 'KG'],
+  ['Kyrgyzstan', 'KG'],
+  ['Uzbekistan', 'UZ'],
+  ['Kazakhstan', 'KZ'],
+  ['Thailand', 'TH'],
+  ['Vietnam', 'VN'],
+  ['Indonesia', 'ID'],
+  ['Philippines', 'PH'],
+  ['India', 'IN'],
+  ['Turkey', 'TR'],
+  ['Türkiye', 'TR'],
+  ['North Macedonia', 'MK'],
+  ['Macedonia', 'MK'],
+  ['Serbia', 'RS'],
+  ['Croatia', 'HR'],
+  ['Slovenia', 'SI'],
+  ['Slovakia', 'SK'],
+  ['Montenegro', 'ME'],
+  ['Albania', 'AL'],
+  ['Romania', 'RO'],
+  ['Bulgaria', 'BG'],
+  ['Greece', 'GR'],
+  ['Portugal', 'PT'],
+  ['Spain', 'ES'],
+  ['France', 'FR'],
+  ['Germany', 'DE'],
+  ['England', 'GB'],
+  ['Scotland', 'GB'],
+  ['Wales', 'GB'],
+  ['Northern Ireland', 'GB'],
+  ['Netherlands', 'NL'],
+  ['Belgium', 'BE'],
+  ['Switzerland', 'CH'],
+  ['Austria', 'AT'],
+  ['Italy', 'IT'],
+  ['Poland', 'PL'],
+  ['Denmark', 'DK'],
+  ['Norway', 'NO'],
+  ['Sweden', 'SE'],
+  ['Finland', 'FI'],
+  ['Iceland', 'IS'],
+  ['Ireland', 'IE'],
+  ['Luxembourg', 'LU'],
+  ['Liechtenstein', 'LI'],
+  ['Monaco', 'MC'],
+  ['Andorra', 'AD'],
+  ['Malta', 'MT'],
+  ['Cyprus', 'CY'],
+])
 function buildRequestUrl(baseUrl) {
   if (!baseUrl) return ''
   const joiner = baseUrl.includes('?') ? '&' : '?'
   return `${baseUrl}${joiner}t=${Date.now()}`
 }
 
-const UPDATE_METRICS_TIMEOUT_MS = 7000
-const UPDATE_METRICS_CACHE_KEY = 'rankinggrupovieira:update-metrics-cache'
-const DEFAULT_UPDATE_METRICS = { averageLabel: '00:00', isReady: false }
+function formatApiDateKey(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${month}/${day}/${year}`
+}
+
+function parseGameDateTime(localDate) {
+  if (!localDate || typeof localDate !== 'string') return Number.NaN
+  const [datePart = '', timePart = '00:00'] = localDate.trim().split(' ')
+  const [month = '', day = '', year = ''] = datePart.split('/')
+  const normalized = `${year}-${month}-${day}T${timePart}:00`
+  const parsed = new Date(normalized)
+  return Number.isNaN(parsed.getTime()) ? Number.NaN : parsed.getTime()
+}
+
+function formatGameClock(localDate) {
+  if (!localDate || typeof localDate !== 'string') return '--:--'
+  const parts = localDate.trim().split(' ')
+  return parts[1] || '--:--'
+}
+
+function parseLocalDateTimeParts(localDate) {
+  if (!localDate || typeof localDate !== 'string') return null
+  const [datePart = '', timePart = '00:00'] = localDate.trim().split(' ')
+  const [month = '', day = '', year = ''] = datePart.split('/')
+  const [hour = '00', minute = '00'] = timePart.split(':')
+  const parsed = {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
+    second: 0,
+  }
+  if (Object.values(parsed).some((value, index) => index < 4 && !Number.isFinite(value))) {
+    return null
+  }
+  return parsed
+}
+
+function formatTimeInTimeZone(localDate, timeZone) {
+  const parts = parseLocalDateTimeParts(localDate)
+  if (!parts || !timeZone) return formatGameClock(localDate)
+
+  const utcGuess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+  const resolved = formatter.formatToParts(new Date(utcGuess)).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value
+    return acc
+  }, {})
+  const zonedAsUtc = Date.UTC(
+    Number(resolved.year),
+    Number(resolved.month) - 1,
+    Number(resolved.day),
+    Number(resolved.hour),
+    Number(resolved.minute),
+    Number(resolved.second),
+  )
+  const adjustedUtc = utcGuess - (zonedAsUtc - utcGuess)
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(adjustedUtc))
+}
+
+function normalizeCountryKey(value) {
+  return normalizeMeta(value)
+    .toLowerCase()
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function resolveCountryName(name) {
+  const normalized = normalizeCountryKey(name)
+  return COUNTRY_ALIAS_MAP[normalized] || normalizeMeta(name)
+}
+
+function resolveCountryDisplayName(name) {
+  const canonicalName = resolveCountryName(name)
+  if (canonicalName === 'Czech Republic') {
+    return 'República Tcheca'
+  }
+  const regionCode = COUNTRY_DISPLAY_CODE_MAP.get(canonicalName)
+
+  if (!regionCode || typeof Intl.DisplayNames !== 'function') {
+    return canonicalName
+  }
+
+  try {
+    const displayNames = new Intl.DisplayNames(['pt-BR'], { type: 'region' })
+    return displayNames.of(regionCode) || canonicalName
+  } catch {
+    return canonicalName
+  }
+}
+
+function resolveWorldCupFlagUrl(countryName) {
+  const normalizedCountryKey = normalizeCountryKey(countryName)
+  return WORLD_CUP_FLAG_PATHS[normalizedCountryKey] || ''
+}
+
+function resolveStadiumTimeZone(stadium) {
+  const country = normalizeCountryKey(stadium?.country_en)
+  const region = normalizeCountryKey(stadium?.region)
+  const city = normalizeCountryKey(stadium?.city_en)
+
+  if (country === 'mexico') return 'America/Mexico_City'
+  if (country === 'canada') {
+    if (region === 'western' || city.includes('vancouver')) return 'America/Vancouver'
+    return 'America/Toronto'
+  }
+  if (country === 'united states') {
+    if (
+      city.includes('seattle')
+      || city.includes('los angeles')
+      || city.includes('santa clara')
+      || city.includes('san francisco')
+      || city.includes('inglewood')
+      || city.includes('bay area')
+    ) {
+      return 'America/Los_Angeles'
+    }
+    if (
+      city.includes('houston')
+      || city.includes('dallas')
+      || city.includes('arlington')
+      || city.includes('kansas city')
+    ) {
+      return 'America/Chicago'
+    }
+    return 'America/New_York'
+  }
+
+  return ''
+}
+
+function formatGameStatus(game) {
+  const rawStatus = normalizeMeta(game?.status || game?.game_status || game?.match_status)
+    .toLowerCase()
+    .replace(/['"’`]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+  const elapsed = String(game?.time_elapsed || '').trim()
+  if (
+    rawStatus === 'finished'
+    || rawStatus === 'ended'
+    || rawStatus === 'complete'
+    || rawStatus === 'closed'
+    || rawStatus === 'encerrado'
+  ) {
+    return 'Encerrado'
+  }
+  if (
+    rawStatus === 'live'
+    || rawStatus === 'in progress'
+    || rawStatus === 'ongoing'
+    || rawStatus === 'inplay'
+    || rawStatus === 'ao vivo'
+  ) {
+    return 'Ao vivo'
+  }
+  if (
+    rawStatus === 'notstarted'
+    || rawStatus === 'not started'
+    || rawStatus === 'scheduled'
+    || rawStatus === 'not begun'
+    || rawStatus === 'programado'
+  ) {
+    return 'Não iniciado'
+  }
+  if (String(game?.finished).toLowerCase() === 'true') {
+    return 'Encerrado'
+  }
+  if (String(game?.started).toLowerCase() === 'true') {
+    return 'Ao vivo'
+  }
+  if (elapsed) {
+    const normalizedElapsed = elapsed
+      .toLowerCase()
+      .replace(/['"’`]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+
+    if (
+      normalizedElapsed === 'finished'
+      || normalizedElapsed === 'ended'
+      || normalizedElapsed === 'complete'
+      || normalizedElapsed === 'closed'
+    ) {
+      return 'Encerrado'
+    }
+
+    if (
+      normalizedElapsed === 'notstarted'
+      || normalizedElapsed === 'not started'
+      || normalizedElapsed === 'scheduled'
+      || normalizedElapsed === 'not begun'
+    ) {
+      return 'Não iniciado'
+    }
+
+    if (normalizedElapsed === 'live' || normalizedElapsed === 'in progress' || normalizedElapsed === 'ongoing' || normalizedElapsed === 'inplay') {
+      return 'Ao vivo'
+    }
+
+    return `${elapsed}'`
+  }
+  return 'Não iniciado'
+}
+
+function filterTodayGames(payload, referenceDate = new Date()) {
+  const games = Array.isArray(payload?.games) ? payload.games : []
+  const todayKey = formatApiDateKey(referenceDate)
+
+  return games
+    .filter((game) => String(game?.local_date || '').startsWith(todayKey))
+    .sort((left, right) => {
+      const leftTime = parseGameDateTime(left?.local_date)
+      const rightTime = parseGameDateTime(right?.local_date)
+      return leftTime - rightTime
+    })
+}
 
 async function fetchJson(baseUrl) {
   const requestUrl = buildRequestUrl(baseUrl)
@@ -203,72 +567,9 @@ async function fetchJson(baseUrl) {
   }
 }
 
-function withTimeout(promise, timeoutMs) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), timeoutMs)
-    promise
-      .then((value) => {
-        clearTimeout(timer)
-        resolve(value)
-      })
-      .catch(() => {
-        clearTimeout(timer)
-        resolve(null)
-      })
-  })
-}
-
-function loadCachedUpdateMetrics() {
-  if (typeof window === 'undefined') {
-    return DEFAULT_UPDATE_METRICS
-  }
-
-  try {
-    const raw = window.localStorage.getItem(UPDATE_METRICS_CACHE_KEY)
-    if (!raw) return DEFAULT_UPDATE_METRICS
-    const parsed = JSON.parse(raw)
-    const averageLabel = normalizeMeta(parsed?.averageLabel)
-    if (!isRealUpdateMetricLabel(averageLabel)) {
-      return DEFAULT_UPDATE_METRICS
-    }
-    return { averageLabel, isReady: true }
-  } catch {
-    return DEFAULT_UPDATE_METRICS
-  }
-}
-
-function saveCachedUpdateMetrics(metrics) {
-  if (typeof window === 'undefined') return
-  if (!metrics?.isReady || !isRealUpdateMetricLabel(metrics.averageLabel)) return
-  try {
-    window.localStorage.setItem(UPDATE_METRICS_CACHE_KEY, JSON.stringify(metrics))
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
-function clearCachedUpdateMetrics() {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.removeItem(UPDATE_METRICS_CACHE_KEY)
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
 function normalizeMeta(value) {
   if (!value) return ''
   return String(value).replace(/\s+/g, ' ').trim()
-}
-
-function isRealUpdateMetricLabel(value) {
-  const normalized = normalizeMeta(value)
-  return Boolean(
-    normalized
-      && normalized !== '00:00'
-      && normalized !== '00:00:00'
-      && normalized !== '--:--',
-  )
 }
 
 function formatName(value) {
@@ -337,64 +638,6 @@ function formatCountLabel(value) {
   const count = Math.round(parseNumericValue(value))
   if (!count) return '0 propostas'
   return count === 1 ? '1 proposta' : `${count} propostas`
-}
-
-function findDeepFieldValue(payload, keys, seen = new Set()) {
-  if (!payload || typeof payload !== 'object' || seen.has(payload)) return ''
-  seen.add(payload)
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const found = findDeepFieldValue(item, keys, seen)
-      if (found) return found
-    }
-    return ''
-  }
-
-  for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(payload, key) && hasRowValue(payload[key])) {
-      return payload[key]
-    }
-  }
-
-  for (const value of Object.values(payload)) {
-    const found = findDeepFieldValue(value, keys, seen)
-    if (found) return found
-  }
-
-  return ''
-}
-
-function extractUpdateMetrics(payload) {
-  const cycleDurationFromMs = formatDurationFromMs(
-    payload?.averageCycleDurationMs ?? payload?.lastCycleDurationMs,
-  )
-  const averageLabel = normalizeMeta(
-    payload?.combined?.avg_of_averages_fmt
-    || findDeepFieldValue(payload, ['avg_of_averages_fmt', 'avgOfAveragesFmt', 'media_total_fmt'])
-    || payload?.averageCycleDuration
-    || payload?.lastCycleDuration
-    || cycleDurationFromMs,
-  )
-
-  if (!isRealUpdateMetricLabel(averageLabel)) {
-    return DEFAULT_UPDATE_METRICS
-  }
-
-  return { averageLabel, isReady: true }
-}
-
-function formatDurationFromMs(value) {
-  const ms = Number(value)
-  if (!Number.isFinite(ms) || ms <= 0) return ''
-  const totalSeconds = Math.floor(ms / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  if (hours > 0) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function parseNumericValue(value) {
@@ -608,6 +851,19 @@ function assembleRankings(rowsById) {
   })
 }
 
+function preserveWorldCupRanking(rankings) {
+  const nextRankings = Array.isArray(rankings) ? rankings.filter(Boolean) : []
+  const existingWorldCup = nextRankings.find((ranking) => ranking.id === 'worldcup-games')
+  if (existingWorldCup) {
+    return nextRankings
+  }
+
+  const worldCupBase = baseRankings.find((ranking) => ranking.id === 'worldcup-games')
+  if (!worldCupBase) return nextRankings
+
+  return [...nextRankings, { ...worldCupBase }]
+}
+
 function buildRankingsFromRows(rows) {
   const safeRows = Array.isArray(rows) ? rows : []
   const vendorKey = resolveRowKey(safeRows, [
@@ -775,28 +1031,6 @@ function buildRankingsFromLists(lists) {
   })
 }
 
-function getFutPosition(rankingId) {
-  if (rankingId === 'vendedores') return 'VND'
-  if (rankingId === 'portabilidade') return 'PRT'
-  if (rankingId === 'novo') return 'NV'
-  if (rankingId === 'clt') return 'CLT'
-  if (rankingId === 'supervisores') return 'SUP'
-  if (rankingId === 'gerentes') return 'GER'
-  return 'VND'
-}
-
-function formatFutValue(value) {
-  const num = Number(value)
-  if (!Number.isFinite(num) || num <= 0) return '0'
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1).replace('.0', '')}M`
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(1).replace('.0', '')}K`
-  }
-  return String(num)
-}
-
 function App() {
   const [rankings, setRankings] = useState(baseRankings)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -806,7 +1040,6 @@ function App() {
   const [now, setNow] = useState(() => new Date())
   const [showIntro, setShowIntro] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
-  const [, setUpdateMetrics] = useState(() => loadCachedUpdateMetrics())
   const isMountedRef = useRef(true)
   const hasLoadedRef = useRef(false)
   const fetchInFlightRef = useRef(null)
@@ -815,11 +1048,27 @@ function App() {
   const [showSpotlight, setShowSpotlight] = useState(false)
   const [spotlightRankingId, setSpotlightRankingId] = useState('')
   const [spotlightRow, setSpotlightRow] = useState(null)
+  const [worldCupGamesLoading, setWorldCupGamesLoading] = useState(false)
+  const [worldCupGamesReady, setWorldCupGamesReady] = useState(false)
+  const [worldCupGamesError, setWorldCupGamesError] = useState(false)
+  const [worldCupStadiumsById, setWorldCupStadiumsById] = useState({})
+  const [worldCupStadiumsReady, setWorldCupStadiumsReady] = useState(false)
+  const [worldCupStadiumsError, setWorldCupStadiumsError] = useState(false)
   const prefersReducedMotion = useReducedMotion()
+  const previousRankingIdRef = useRef('')
 
   useEffect(() => {
     activeIndexRef.current = activeIndex
   }, [activeIndex])
+
+  useEffect(() => {
+    if (rankings.some((ranking) => ranking.id === 'worldcup-games')) {
+      return undefined
+    }
+
+    setRankings((prev) => preserveWorldCupRanking(prev))
+    return undefined
+  }, [rankings])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -843,10 +1092,6 @@ function App() {
       try {
         setIsLoading(true)
         let data
-        const metricsPromise = withTimeout(
-          fetchJson(UPDATE_METRICS_API_URL),
-          UPDATE_METRICS_TIMEOUT_MS,
-        )
         data = await fetchJson(PRIMARY_API_URL)
         const rowsPayload = extractRowsPayload(data)
         const lists = extractRankingLists(data)
@@ -854,29 +1099,12 @@ function App() {
           ? buildRankingsFromRows(rowsPayload)
           : (lists ? buildRankingsFromLists(lists) : buildRankingsFromRows(rowsPayload))
         if (isMountedRef.current) {
-          setRankings(updated)
+          setRankings(preserveWorldCupRanking(updated))
           hasLoadedRef.current = true
         }
-        const metricsData = await metricsPromise
-        if (isMountedRef.current) {
-          const nextMetrics = extractUpdateMetrics(metricsData || data)
-          setUpdateMetrics(() => {
-            if (nextMetrics.isReady) {
-              saveCachedUpdateMetrics(nextMetrics)
-            } else {
-              clearCachedUpdateMetrics()
-            }
-            return nextMetrics
-          })
-          return nextMetrics.isReady
-        }
-        return false
+        return true
       } catch (error) {
         console.error('Falha ao carregar ranking:', error)
-        if (isMountedRef.current) {
-          clearCachedUpdateMetrics()
-          setUpdateMetrics(DEFAULT_UPDATE_METRICS)
-        }
         return false
       } finally {
         if (isMountedRef.current) {
@@ -907,10 +1135,109 @@ function App() {
     return () => clearTimeout(timer)
   }, [showIntro])
 
-
   const current = rankings[activeIndex] || baseRankings[0]
+  const todayKey = formatApiDateKey(now)
+
+  useEffect(() => {
+    const previousRankingId = previousRankingIdRef.current
+    previousRankingIdRef.current = current.id
+
+    if (current.id !== 'worldcup-games') {
+      return undefined
+    }
+
+    if (previousRankingId === 'worldcup-games') {
+      return undefined
+    }
+
+    setWorldCupGamesLoading(false)
+    setWorldCupGamesReady(false)
+    setWorldCupGamesError(false)
+    setWorldCupStadiumsById({})
+    setWorldCupStadiumsReady(false)
+    setWorldCupStadiumsError(false)
+  }, [current.id])
+
+  useEffect(() => {
+    if (current.id !== 'worldcup-games') return undefined
+
+    let cancelled = false
+
+    const loadGames = async () => {
+      setWorldCupGamesLoading(true)
+      setWorldCupGamesError(false)
+
+      try {
+        const payload = await fetchJson(WORLD_CUP_GAMES_API_URL)
+        if (cancelled || !isMountedRef.current) return
+
+        const todayGames = filterTodayGames(payload, new Date())
+        const gamesRanking = {
+          ...baseRankings.find((ranking) => ranking.id === 'worldcup-games'),
+          rows: todayGames,
+        }
+
+        setRankings((prev) => [...prev.filter((ranking) => ranking.id !== 'worldcup-games'), gamesRanking])
+        setWorldCupGamesReady(true)
+        setWorldCupGamesError(false)
+      } catch (error) {
+        if (cancelled || !isMountedRef.current) return
+        console.error('Falha ao carregar jogos:', error)
+        setWorldCupGamesReady(false)
+        setWorldCupGamesError(true)
+      } finally {
+        if (!cancelled && isMountedRef.current) {
+          setWorldCupGamesLoading(false)
+        }
+      }
+    }
+
+    loadGames()
+
+    return () => {
+      cancelled = true
+    }
+  }, [current.id, todayKey])
+
+  useEffect(() => {
+    if (current.id !== 'worldcup-games' || worldCupStadiumsReady) return undefined
+
+    let cancelled = false
+
+    const loadStadiums = async () => {
+      setWorldCupStadiumsError(false)
+
+      try {
+        const payload = await fetchJson(WORLD_CUP_STADIUMS_API_URL)
+        if (cancelled || !isMountedRef.current) return
+
+        const stadiums = Array.isArray(payload?.stadiums) ? payload.stadiums : []
+        const nextMap = stadiums.reduce((acc, stadium) => {
+          if (stadium?.id != null) {
+            acc[String(stadium.id)] = stadium
+          }
+          return acc
+        }, {})
+
+        setWorldCupStadiumsById(nextMap)
+        setWorldCupStadiumsReady(true)
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Falha ao carregar estádios:', error)
+          setWorldCupStadiumsError(true)
+        }
+      }
+    }
+
+    loadStadiums()
+
+    return () => {
+      cancelled = true
+    }
+  }, [current.id, worldCupStadiumsReady])
+
   const hasData = rankings.some((item) => item.rows.length > 0)
-  const canRotate = hasData && !isLoading && !isPaused && !showIntro
+  const canRotate = hasData && !isLoading && !isPaused && !showIntro && (current.id !== 'worldcup-games' || worldCupGamesReady)
   const totalValue = current.rows.reduce(
     (sum, row) => sum + (Number.isFinite(row.value) ? row.value : 0),
     0,
@@ -935,7 +1262,7 @@ function App() {
   const openSpotlightForRanking = useCallback((ranking) => {
     clearSpotlightTimer()
 
-    if (!ranking?.rows?.length || ranking.id === 'supervisores' || ranking.id === 'gerentes') {
+    if (!ranking?.rows?.length || ranking.id === 'supervisores' || ranking.id === 'gerentes' || ranking.id === 'worldcup-games') {
       closeSpotlight()
       return
     }
@@ -1033,6 +1360,81 @@ function App() {
         <div className="rank-metrics">
           <div className="rank-value">{currencyFormatter.format(rowValue)}</div>
           <div className="rank-trend up">{trendText}</div>
+        </div>
+      </Motion.article>
+    )
+  }
+
+  const renderGameRow = (game, index) => {
+    const homeTeamRaw = game?.home_team_name || game?.home_team_name_en || game?.home_team || 'Mandante'
+    const awayTeamRaw = game?.away_team_name || game?.away_team_name_en || game?.away_team || 'Visitante'
+    const homeTeam = resolveCountryDisplayName(homeTeamRaw)
+    const awayTeam = resolveCountryDisplayName(awayTeamRaw)
+    const homeScore = Number.isFinite(Number(game?.home_score)) ? Number(game.home_score) : 0
+    const awayScore = Number.isFinite(Number(game?.away_score)) ? Number(game.away_score) : 0
+    const stadium = worldCupStadiumsById[String(game?.stadium_id)] || null
+    const stadiumName = stadium?.name_en || stadium?.fifa_name || 'Estádio não informado'
+    const stadiumCity = stadium?.city_en ? ` • ${stadium.city_en}` : ''
+    const sourceTimeZone = resolveStadiumTimeZone(stadium)
+    const saoPauloTime = sourceTimeZone
+      ? formatTimeInTimeZone(game?.local_date, sourceTimeZone)
+      : formatGameClock(game?.local_date)
+    const gameTime = saoPauloTime
+    const homeFlagUrl = resolveWorldCupFlagUrl(game?.home_team_name_en || '')
+    const awayFlagUrl = resolveWorldCupFlagUrl(game?.away_team_name_en || '')
+    const renderFlag = (flagUrl, teamName) => (
+      flagUrl ? (
+        <img
+          className="game-flag"
+          aria-label={`Bandeira de ${teamName}`}
+          src={flagUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      ) : null
+    )
+
+    return (
+      <Motion.article
+        key={`${game?.id || game?._id || index}-${game?.local_date || index}`}
+        className="game-row"
+        style={{ '--delay': `${index * 80}ms` }}
+        variants={prefersReducedMotion ? undefined : rowMotion}
+        initial={prefersReducedMotion ? false : 'initial'}
+        animate={prefersReducedMotion ? undefined : 'animate'}
+        exit={prefersReducedMotion ? undefined : 'exit'}
+        transition={{ duration: 0.34, ease: 'easeOut' }}
+      >
+        <div className="game-time">{gameTime}</div>
+        <div className="game-side home">
+          <span className="game-team">
+            {renderFlag(homeFlagUrl, homeTeam)}
+            <span>{homeTeam}</span>
+          </span>
+          <span className="game-goals">{homeScore}</span>
+        </div>
+        <div className="game-separator" aria-hidden="true">x</div>
+        <div className="game-side away">
+          <span className="game-goals">{awayScore}</span>
+          <span className="game-team">
+            <span>{awayTeam}</span>
+            {renderFlag(awayFlagUrl, awayTeam)}
+          </span>
+        </div>
+        <div className="game-details">
+          <span className="game-stadium">{stadiumName}{stadiumCity}</span>
+        </div>
+        <div
+          className={`game-status ${
+            String(game?.finished).toLowerCase() === 'true'
+              ? 'is-finished'
+              : String(game?.started).toLowerCase() === 'true'
+                ? 'is-live'
+                : 'is-scheduled'
+          }`}
+        >
+          {formatGameStatus(game)}
         </div>
       </Motion.article>
     )
@@ -1158,7 +1560,7 @@ function App() {
             </div>
             <div className="rank-status">
               <div className="status-pills" aria-label="Contexto visual do tema">
-                <span className="status-pill status-pill-active">Copa do Mundo</span>
+                <span className="status-pill status-pill-active">{current.id === 'worldcup-games' ? 'Ao vivo' : 'Copa do Mundo'}</span>
                 <span className="status-pill">VieiraCred</span>
               </div>
               <img className="brand-logo" src="/logo-vieira-copa.png" alt="VieiraCred" />
@@ -1166,12 +1568,34 @@ function App() {
           </div>
 
           <Motion.div
-            className={`rank-grid${['vendedores', 'portabilidade', 'novo', 'clt', 'gerentes'].includes(current.id) ? ' vendors-grid' : ''}`}
+            className={`rank-grid${['vendedores', 'portabilidade', 'novo', 'clt', 'gerentes'].includes(current.id) ? ' vendors-grid' : ''}${current.id === 'worldcup-games' ? ' games-grid' : ''}`}
             variants={prefersReducedMotion ? undefined : gridMotion}
             initial={prefersReducedMotion ? false : 'initial'}
             animate={prefersReducedMotion ? undefined : 'animate'}
           >
-            {current.rows.length === 0 ? (
+            {current.id === 'worldcup-games' ? (
+              current.rows.length === 0 ? (
+                <div className="empty-state">
+                  {worldCupGamesLoading || (!worldCupGamesReady && !worldCupGamesError)
+                    ? 'Carregando os jogos de hoje...'
+                    : worldCupGamesError
+                      ? 'Não foi possível carregar os jogos da API worldcup26.ir.'
+                      : 'Nenhum jogo de hoje foi encontrado.'}
+                </div>
+              ) : (
+                <div className="games-table">
+                  <div className="games-table-head">
+                    <span>Horário</span>
+                    <span>Casa</span>
+                    <span>Fora</span>
+                    <span>Status</span>
+                  </div>
+                  <div className="games-table-body">
+                    {current.rows.map((game, index) => renderGameRow(game, index))}
+                  </div>
+                </div>
+              )
+            ) : current.rows.length === 0 ? (
               <div className="empty-state">
                 {isBeforeStart
                   ? 'Estamos aguardando as primeiras vendas do dia. Bora movimentar o ranking!'
@@ -1197,7 +1621,11 @@ function App() {
               )}
             </div>
             <div className="footer-row">
-              <p className="footnote accent">Filtro utilizado no New Corban: <strong>Formalizado =&gt; Hoje</strong>; Pequenas diferenças podem ocorrer devido ao atraso da API.</p>
+              <p className="footnote accent">
+                {current.id === 'worldcup-games'
+                  ? `Fonte: worldcup26.ir/get/games + worldcup26.ir/get/stadiums${worldCupStadiumsError ? ' | alguns estádios podem não carregar' : ''}`
+                  : 'Filtro utilizado no New Corban: Formalizado => Hoje; Pequenas diferenças podem ocorrer devido ao atraso da API.'}
+              </p>
               {!showIntro ? (
                 <div className="nav-controls" aria-label="Controles do ranking">
                   <Motion.button

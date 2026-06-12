@@ -10,10 +10,17 @@ export default defineConfig({
       interval: 200,
     },
     proxy: {
-      '/api/update-metrics': {
-        target: 'http://177.153.62.236:3032',
+      '/api/worldcup-games': {
+        target: 'https://worldcup26.ir',
         changeOrigin: true,
-        rewrite: () => '/status',
+        secure: true,
+        rewrite: () => '/get/games',
+      },
+      '/api/worldcup-stadiums': {
+        target: 'https://worldcup26.ir',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/get/stadiums',
       },
     },
   },
