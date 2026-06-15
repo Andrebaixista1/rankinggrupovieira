@@ -1832,7 +1832,7 @@ function App() {
         ) : (
         <Motion.section
           key={current.id}
-          className="rank-card has-gradient"
+          className={`rank-card has-gradient${current.id === 'worldcup-games' ? ' games-card' : ''}`}
           variants={prefersReducedMotion ? undefined : pageMotion}
           initial={prefersReducedMotion ? false : 'initial'}
           animate={prefersReducedMotion ? undefined : 'animate'}
@@ -1869,7 +1869,9 @@ function App() {
                       : 'Nenhum jogo de hoje foi encontrado.'}
                 </div>
               ) : (
-                <div className="games-table">
+                <div
+                  className={`games-table${current.rows.length >= 4 ? ' is-compact' : ''}`}
+                >
                   <div className="games-table-body">
                     {current.rows.map((game, index) => renderGameRow(game, index))}
                   </div>

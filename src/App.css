@@ -447,6 +447,11 @@
     linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(251,251,248,0.8) 100%);
 }
 
+.rank-card.games-card {
+  padding-top: 24px;
+  padding-bottom: 18px;
+}
+
 .intro-screen {
   align-items: center;
   justify-content: center;
@@ -580,6 +585,11 @@
   filter: brightness(1.02) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.12));
 }
 
+.games-card .brand-logo {
+  width: 74px;
+  height: 74px;
+}
+
 .rank-grid {
   margin-top: 24px;
   display: grid;
@@ -603,6 +613,7 @@
 .rank-grid.games-grid {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+  margin-top: 16px;
   overflow: hidden;
 }
 
@@ -614,6 +625,20 @@
   flex: 1;
   height: 100%;
   --games-text-scale: 1.7;
+  --games-row-gap: 12px;
+  --games-row-padding-y: 14px;
+  --games-row-padding-x: 14px;
+  --games-flag-width: 17rem;
+  --games-flag-height: 10rem;
+}
+
+.games-table.is-compact {
+  --games-text-scale: 1.18;
+  --games-row-gap: 8px;
+  --games-row-padding-y: 8px;
+  --games-row-padding-x: 14px;
+  --games-flag-width: clamp(8.8rem, 8.9vw, 10rem);
+  --games-flag-height: clamp(5.15rem, 5.2vw, 5.9rem);
 }
 
 .games-table-body {
@@ -622,11 +647,20 @@
   flex: 1;
   align-content: stretch;
   grid-auto-rows: minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--games-row-gap);
   overflow: auto;
   padding-right: 4px;
   scrollbar-width: thin;
   scrollbar-color: rgba(15, 138, 67, 0.28) rgba(21, 128, 61, 0.06);
+}
+
+.games-table.is-compact .games-table-body {
+  overflow: hidden;
+}
+
+.games-table.is-compact .game-row {
+  gap: 8px 10px;
+  border-radius: 16px;
 }
 
 .games-table-body::-webkit-scrollbar {
@@ -651,7 +685,7 @@
   align-items: center;
   min-height: 0;
   height: 100%;
-  padding: 14px 14px 12px;
+  padding: var(--games-row-padding-y) var(--games-row-padding-x);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(20, 53, 29, 0.08);
@@ -758,8 +792,8 @@
 
 .game-flag {
   display: inline-block;
-  width: 17rem;
-  height: 10rem;
+  width: var(--games-flag-width);
+  height: var(--games-flag-height);
   border-radius: 10px;
   background-color: rgba(255, 255, 255, 0.92);
   background-position: center;
@@ -1042,6 +1076,11 @@
   flex-direction: column;
   gap: 12px;
   flex: 0 0 auto;
+}
+
+.games-card .rank-footer {
+  margin-top: 10px;
+  gap: 8px;
 }
 
 .progress {
