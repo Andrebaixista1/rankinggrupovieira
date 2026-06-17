@@ -317,6 +317,27 @@ const COUNTRY_DISPLAY_CODE_MAP = new Map([
   ['Malta', 'MT'],
   ['Cyprus', 'CY'],
 ])
+// Hardcoded stadium_id → IANA timezone mapping (World Cup 2026)
+// Ensures Brasília time conversion works even when /api/worldcup-stadiums fails
+const STADIUM_TIMEZONE_MAP = {
+  '1': 'America/Mexico_City',    // Estadio Azteca - Cidade do México
+  '2': 'America/Mexico_City',    // Estadio Akron - Guadalajara
+  '3': 'America/Monterrey',      // Estadio BBVA - Monterrey
+  '4': 'America/Chicago',        // AT&T Stadium - Arlington, TX
+  '5': 'America/Chicago',        // NRG Stadium - Houston, TX
+  '6': 'America/New_York',       // Mercedes-Benz Stadium - Atlanta, GA
+  '7': 'America/New_York',       // Lincoln Financial Field - Philadelphia, PA
+  '8': 'America/New_York',       // Hard Rock Stadium - Miami, FL
+  '9': 'America/New_York',       // MetLife Stadium - East Rutherford, NJ
+  '10': 'America/Los_Angeles',   // Lumen Field - Seattle, WA
+  '11': 'America/Los_Angeles',   // Levi's Stadium - Santa Clara, CA
+  '12': 'America/Toronto',       // BMO Field - Toronto
+  '13': 'America/Vancouver',     // BC Place - Vancouver
+  '14': 'America/Los_Angeles',   // SoFi Stadium - Inglewood, CA
+  '15': 'America/Chicago',       // Arrowhead Stadium - Kansas City, MO
+  '16': 'America/New_York',      // Gillette Stadium - Foxborough, MA
+}
+
 function buildRequestUrl(baseUrl) {
   if (!baseUrl) return ''
   const joiner = baseUrl.includes('?') ? '&' : '?'
@@ -1663,10 +1684,12 @@ function App() {
     const stadiumName = stadium?.name_en || stadium?.fifa_name || 'Estádio não informado'
     const stadiumCity = stadium?.city_en ? ` • ${stadium.city_en}` : ''
     const sourceTimeZone = resolveStadiumTimeZone(stadium)
-    const saoPauloTime = sourceTimeZone
+      || STADIUM_TIMEZONE_MAP[String(game?.stadium_id)]
+      || ''
+    const brTime = sourceTimeZone
       ? formatTimeInTimeZone(game?.local_date, sourceTimeZone)
       : formatGameClock(game?.local_date)
-    const gameTime = saoPauloTime
+    const gameTime = brTime
     const homeFlagUrl = resolveWorldCupFlagUrl(game?.home_team_name_en || '')
     const awayFlagUrl = resolveWorldCupFlagUrl(game?.away_team_name_en || '')
     const statusLabel = formatGameStatus(game)
@@ -1699,7 +1722,7 @@ function App() {
         exit={prefersReducedMotion ? undefined : 'exit'}
         transition={{ duration: 0.34, ease: 'easeOut' }}
       >
-        <div className="game-time">{gameTime}</div>
+        <div className="game-time">{gameTime}{sourceTimeZone ? <span className="game-time-tz"> BRT</span> : null}</div>
         <div className="game-side home">
           <span className="game-team">
             {renderFlag(homeFlagUrl, homeTeam)}
@@ -1717,6 +1740,7 @@ function App() {
         </div>
         <div className="game-details">
           <span className="game-stadium">{stadiumName}{stadiumCity}</span>
+          {sourceTimeZone ? <span className="game-timezone-hint">Horário de Brasília</span> : null}
         </div>
         <div className={`game-status ${statusClass}`}>
           {statusLabel}
