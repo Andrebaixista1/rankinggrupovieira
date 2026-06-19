@@ -389,6 +389,21 @@ function formatTimeInTimeZone(localDate, timeZone) {
   const parts = parseLocalDateTimeParts(localDate)
   if (!parts || !timeZone) return formatGameClock(localDate)
 
+  const adjustedUtc = parseGameDateTimeInTimeZone(localDate, timeZone)
+  if (!Number.isFinite(adjustedUtc)) return formatGameClock(localDate)
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(adjustedUtc))
+}
+
+function parseGameDateTimeInTimeZone(localDate, timeZone) {
+  const parts = parseLocalDateTimeParts(localDate)
+  if (!parts || !timeZone) return parseGameDateTime(localDate)
+
   const utcGuess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -414,12 +429,7 @@ function formatTimeInTimeZone(localDate, timeZone) {
   )
   const adjustedUtc = utcGuess - (zonedAsUtc - utcGuess)
 
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(adjustedUtc))
+  return adjustedUtc
 }
 
 function normalizeCountryKey(value) {
@@ -671,17 +681,37 @@ function buildGoalEventsSignature(events) {
     .join('|')
 }
 
+function resolveGameSortTime(game, stadiumsById = {}) {
+  const stadium = stadiumsById[String(game?.stadium_id)] || null
+  const sourceTimeZone = resolveStadiumTimeZone(stadium)
+    || STADIUM_TIMEZONE_MAP[String(game?.stadium_id)]
+    || ''
+
+  return sourceTimeZone
+    ? parseGameDateTimeInTimeZone(game?.local_date, sourceTimeZone)
+    : parseGameDateTime(game?.local_date)
+}
+
+function sortGamesByClosestTime(games, stadiumsById = {}) {
+  return [...games].sort((left, right) => {
+    const leftTime = resolveGameSortTime(left, stadiumsById)
+    const rightTime = resolveGameSortTime(right, stadiumsById)
+
+    if (!Number.isFinite(leftTime) && !Number.isFinite(rightTime)) return 0
+    if (!Number.isFinite(leftTime)) return 1
+    if (!Number.isFinite(rightTime)) return -1
+
+    return leftTime - rightTime
+  })
+}
+
 function filterTodayGames(payload, referenceDate = new Date()) {
   const games = Array.isArray(payload?.games) ? payload.games : []
   const todayKey = formatApiDateKey(referenceDate)
 
   return games
     .filter((game) => String(game?.local_date || '').startsWith(todayKey))
-    .sort((left, right) => {
-      const leftTime = parseGameDateTime(left?.local_date)
-      const rightTime = parseGameDateTime(right?.local_date)
-      return leftTime - rightTime
-    })
+    .sort((left, right) => resolveGameSortTime(left) - resolveGameSortTime(right))
 }
 
 async function fetchJsonOnce(baseUrl) {
@@ -1302,6 +1332,9 @@ function App() {
 
   const current = rankings[activeIndex] || baseRankings[0]
   const todayKey = formatApiDateKey(now)
+  const visibleWorldCupRows = current.id === 'worldcup-games'
+    ? sortGamesByClosestTime(current.rows, worldCupStadiumsById)
+    : current.rows
 
   useEffect(() => {
     const previousRankingId = previousRankingIdRef.current
@@ -1884,7 +1917,7 @@ function App() {
             animate={prefersReducedMotion ? undefined : 'animate'}
           >
             {current.id === 'worldcup-games' ? (
-              current.rows.length === 0 ? (
+              visibleWorldCupRows.length === 0 ? (
                 <div className="empty-state">
                   {worldCupGamesLoading || (!worldCupGamesReady && !worldCupGamesError)
                     ? 'Carregando os jogos de hoje...'
@@ -1894,10 +1927,10 @@ function App() {
                 </div>
               ) : (
                 <div
-                  className={`games-table${current.rows.length >= 4 ? ' is-compact' : ''}`}
+                  className={`games-table${visibleWorldCupRows.length >= 4 ? ' is-compact' : ''}`}
                 >
                   <div className="games-table-body">
-                    {current.rows.map((game, index) => renderGameRow(game, index))}
+                    {visibleWorldCupRows.map((game, index) => renderGameRow(game, index))}
                   </div>
                 </div>
               )
