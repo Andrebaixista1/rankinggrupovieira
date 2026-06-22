@@ -162,7 +162,25 @@ function ControlIcon({ type }) {
 const DIRECT_PRIMARY_API_URL = 'https://app.apivieiracred.com.br/webhook/ranking'
 const PRIMARY_API_URL = import.meta.env.PROD ? '/api/ranking' : DIRECT_PRIMARY_API_URL
 const WORLD_CUP_GAMES_API_URL = import.meta.env.PROD ? '/api/worldcup-games' : '/api/worldcup-games'
-const WORLD_CUP_STADIUMS_API_URL = '/api/worldcup-stadiums'
+const COPA_2026_STADIUMS = [
+  { id: '1', name_en: 'Estadio Banorte', city_en: 'Mexico City', country_en: 'Mexico', region: 'North America' },
+  { id: '2', name_en: 'Estadio Akron', city_en: 'Guadalajara', country_en: 'Mexico', region: 'North America' },
+  { id: '3', name_en: 'Estadio BBVA', city_en: 'Guadalupe', country_en: 'Mexico', region: 'North America' },
+  { id: '4', name_en: 'AT&T Stadium', city_en: 'Arlington', country_en: 'United States', region: 'Central' },
+  { id: '5', name_en: 'NRG Stadium', city_en: 'Houston', country_en: 'United States', region: 'Central' },
+  { id: '6', name_en: 'Mercedes-Benz Stadium', city_en: 'Atlanta', country_en: 'United States', region: 'Eastern' },
+  { id: '7', name_en: 'Lincoln Financial Field', city_en: 'Philadelphia', country_en: 'United States', region: 'Eastern' },
+  { id: '8', name_en: 'Hard Rock Stadium', city_en: 'Miami Gardens', country_en: 'United States', region: 'Eastern' },
+  { id: '9', name_en: 'MetLife Stadium', city_en: 'East Rutherford', country_en: 'United States', region: 'Eastern' },
+  { id: '10', name_en: 'Lumen Field', city_en: 'Seattle', country_en: 'United States', region: 'Western' },
+  { id: '11', name_en: "Levi's Stadium", city_en: 'Santa Clara', country_en: 'United States', region: 'Western' },
+  { id: '12', name_en: 'BMO Field', city_en: 'Toronto', country_en: 'Canada', region: 'Eastern' },
+  { id: '13', name_en: 'BC Place', city_en: 'Vancouver', country_en: 'Canada', region: 'Western' },
+  { id: '14', name_en: 'SoFi Stadium', city_en: 'Inglewood', country_en: 'United States', region: 'Western' },
+  { id: '15', name_en: 'GEHA Field at Arrowhead Stadium', city_en: 'Kansas City', country_en: 'United States', region: 'Central' },
+  { id: '16', name_en: 'Gillette Stadium', city_en: 'Foxborough', country_en: 'United States', region: 'Eastern' },
+]
+const COPA_2026_STADIUMS_BY_ID = COPA_2026_STADIUMS.reduce((acc, s) => { acc[s.id] = s; return acc }, {})
 const ROTATION_INTERVAL = 30000
 const WORLD_CUP_GAMES_POLL_INTERVAL = 30000
 const WORLD_CUP_API_RETRY_COUNT = 2
@@ -705,8 +723,120 @@ function sortGamesByClosestTime(games, stadiumsById = {}) {
   })
 }
 
+// Converte evento ESPN (formato bruto) para o formato interno de jogo.
+// Usado apenas no dev com vite proxy direto à ESPN; em produção o serverless já transforma.
+function normalizeEspnEvent(event) {
+  const competition = Array.isArray(event?.competitions) ? event.competitions[0] : null
+  if (!competition) return null
+
+  const competitors = Array.isArray(competition?.competitors) ? competition.competitors : []
+  const home = competitors.find((c) => c.homeAway === 'home') || {}
+  const away = competitors.find((c) => c.homeAway === 'away') || {}
+
+  const venue = competition?.venue || null
+  const stadiumId = resolveEspnVenueId(venue)
+  const localDate = formatEspnLocalDate(event?.date, stadiumId)
+
+  const state = competition?.status?.type?.state || 'pre'
+  const displayClock = competition?.status?.displayClock || ''
+  const details = Array.isArray(competition?.details) ? competition.details : []
+
+  const status = state === 'in' ? 'live' : state === 'post' ? 'finished' : 'scheduled'
+
+  const scoreNum = (raw) => {
+    if (typeof raw === 'number') return raw
+    if (typeof raw === 'string') { const n = Number(raw); return Number.isFinite(n) ? n : 0 }
+    if (raw && typeof raw === 'object') {
+      if (typeof raw.value === 'number') return raw.value
+      const n = Number(raw.displayValue); return Number.isFinite(n) ? n : 0
+    }
+    return 0
+  }
+
+  const extractScorers = (teamId) =>
+    details
+      .filter((d) => (d?.type?.text || '').toLowerCase().includes('goal') && String(d?.team?.id) === String(teamId))
+      .map((d) => {
+        const player = d?.athletesInvolved?.[0]?.displayName || ''
+        const clock = d?.clock?.displayValue || ''
+        return player ? `${player} ${clock}'` : `${clock}'`
+      })
+      .join(', ')
+
+  return {
+    id: String(event?.id || ''),
+    home_team_name_en: home?.team?.displayName || '',
+    away_team_name_en: away?.team?.displayName || '',
+    home_score: scoreNum(home?.score),
+    away_score: scoreNum(away?.score),
+    local_date: localDate,
+    status,
+    game_status: status,
+    time_elapsed: state === 'in' ? displayClock : '',
+    stadium_id: stadiumId,
+    home_scorers: extractScorers(home?.team?.id),
+    away_scorers: extractScorers(away?.team?.id),
+  }
+}
+
+function resolveEspnVenueId(venue) {
+  if (!venue) return null
+  const name = (venue?.fullName || '').toLowerCase()
+  const city = (venue?.address?.city || '').toLowerCase().split(',')[0].trim()
+
+  if (name.includes('azteca') || name.includes('banorte') || city === 'mexico city' || city === 'ciudad de méxico') return '1'
+  if (name.includes('akron') || city === 'guadalajara') return '2'
+  if (name.includes('bbva') || city === 'guadalupe' || city === 'monterrey') return '3'
+  if (name.includes('at&t') || city === 'arlington') return '4'
+  if (name.includes('nrg') || city === 'houston') return '5'
+  if (name.includes('mercedes-benz') || city === 'atlanta') return '6'
+  if (name.includes('lincoln financial') || city === 'philadelphia') return '7'
+  if (name.includes('hard rock') || city === 'miami gardens' || city === 'miami') return '8'
+  if (name.includes('metlife') || city === 'east rutherford') return '9'
+  if (name.includes('lumen') || city === 'seattle') return '10'
+  if (name.includes("levi's") || city === 'santa clara') return '11'
+  if (name.includes('bmo') || city === 'toronto') return '12'
+  if (name.includes('bc place') || city === 'vancouver') return '13'
+  if (name.includes('sofi') || city === 'inglewood') return '14'
+  if (name.includes('arrowhead') || city === 'kansas city') return '15'
+  if (name.includes('gillette') || city === 'foxborough') return '16'
+  return null
+}
+
+function formatEspnLocalDate(isoDate, stadiumId) {
+  if (!isoDate) return ''
+  const d = new Date(isoDate)
+  if (Number.isNaN(d.getTime())) return ''
+  const tz = STADIUM_TIMEZONE_MAP[String(stadiumId)] || 'UTC'
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d).reduce((acc, p) => {
+      if (p.type !== 'literal') acc[p.type] = p.value
+      return acc
+    }, {})
+    return `${parts.month}/${parts.day}/${parts.year} ${parts.hour}:${parts.minute}`
+  } catch {
+    return ''
+  }
+}
+
 function filterTodayGames(payload, referenceDate = new Date()) {
-  const games = Array.isArray(payload?.games) ? payload.games : []
+  let games
+  if (Array.isArray(payload?.games)) {
+    games = payload.games
+  } else if (Array.isArray(payload?.events)) {
+    games = payload.events.map(normalizeEspnEvent).filter(Boolean)
+  } else {
+    games = []
+  }
+
   const todayKey = formatApiDateKey(referenceDate)
 
   return games
@@ -1246,9 +1376,8 @@ function App() {
   const [worldCupGamesLoading, setWorldCupGamesLoading] = useState(false)
   const [worldCupGamesReady, setWorldCupGamesReady] = useState(false)
   const [worldCupGamesError, setWorldCupGamesError] = useState(false)
-  const [worldCupStadiumsById, setWorldCupStadiumsById] = useState({})
-  const [worldCupStadiumsReady, setWorldCupStadiumsReady] = useState(false)
-  const [worldCupStadiumsError, setWorldCupStadiumsError] = useState(false)
+  const [worldCupStadiumsById] = useState(COPA_2026_STADIUMS_BY_ID)
+  const worldCupStadiumsReady = true
   const prefersReducedMotion = useReducedMotion()
   const previousRankingIdRef = useRef('')
 
@@ -1351,9 +1480,6 @@ function App() {
     setWorldCupGamesLoading(false)
     setWorldCupGamesReady(false)
     setWorldCupGamesError(false)
-    setWorldCupStadiumsById({})
-    setWorldCupStadiumsReady(false)
-    setWorldCupStadiumsError(false)
   }, [current.id])
 
   useEffect(() => {
@@ -1406,45 +1532,6 @@ function App() {
     }
   }, [current.id, todayKey])
 
-  useEffect(() => {
-    if (current.id !== 'worldcup-games' || worldCupStadiumsReady) return undefined
-
-    let cancelled = false
-
-    const loadStadiums = async () => {
-      setWorldCupStadiumsError(false)
-
-      try {
-        const payload = await fetchJson(WORLD_CUP_STADIUMS_API_URL, {
-          retries: WORLD_CUP_API_RETRY_COUNT,
-          retryDelayMs: WORLD_CUP_API_RETRY_DELAY_MS,
-        })
-        if (cancelled || !isMountedRef.current) return
-
-        const stadiums = Array.isArray(payload?.stadiums) ? payload.stadiums : []
-        const nextMap = stadiums.reduce((acc, stadium) => {
-          if (stadium?.id != null) {
-            acc[String(stadium.id)] = stadium
-          }
-          return acc
-        }, {})
-
-        setWorldCupStadiumsById(nextMap)
-        setWorldCupStadiumsReady(true)
-      } catch (error) {
-        if (!cancelled) {
-          console.error('Falha ao carregar estádios:', error)
-          setWorldCupStadiumsError(true)
-        }
-      }
-    }
-
-    loadStadiums()
-
-    return () => {
-      cancelled = true
-    }
-  }, [current.id, worldCupStadiumsReady])
 
   const hasData = rankings.some((item) => item.rows.length > 0)
   const canRotate = hasData && !isLoading && !isPaused && !showIntro && !showGoalModal && (current.id !== 'worldcup-games' || worldCupGamesReady)
@@ -1922,7 +2009,7 @@ function App() {
                   {worldCupGamesLoading || (!worldCupGamesReady && !worldCupGamesError)
                     ? 'Carregando os jogos de hoje...'
                     : worldCupGamesError
-                      ? 'Não foi possível carregar os jogos da API worldcup26.ir.'
+                      ? 'Não foi possível carregar os jogos da ESPN.'
                       : 'Nenhum jogo de hoje foi encontrado.'}
                 </div>
               ) : (
@@ -1962,7 +2049,7 @@ function App() {
             <div className="footer-row">
               <p className="footnote accent">
                 {current.id === 'worldcup-games'
-                  ? `Fonte: worldcup26.ir/get/games + worldcup26.ir/get/stadiums${worldCupStadiumsError ? ' | alguns estádios podem não carregar' : ''}`
+                  ? 'Fonte: ESPN API (site.api.espn.com) · horários convertidos para Brasília'
                   : 'Filtro utilizado no New Corban: Formalizado => Hoje; Pequenas diferenças podem ocorrer devido ao atraso da API.'}
               </p>
               {!showIntro ? (

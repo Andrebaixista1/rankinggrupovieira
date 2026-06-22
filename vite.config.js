@@ -9,18 +9,14 @@ export default defineConfig({
       usePolling: true,
       interval: 200,
     },
+    port: 5174,
+    strictPort: true,
     proxy: {
       '/api/worldcup-games': {
-        target: 'https://worldcup26.ir',
+        target: 'https://site.api.espn.com',
         changeOrigin: true,
         secure: true,
-        rewrite: () => '/get/games',
-      },
-      '/api/worldcup-stadiums': {
-        target: 'https://worldcup26.ir',
-        changeOrigin: true,
-        secure: true,
-        rewrite: () => '/get/stadiums',
+        rewrite: () => '/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719',
       },
     },
   },
