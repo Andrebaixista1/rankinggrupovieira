@@ -229,6 +229,8 @@ const COUNTRY_ALIAS_MAP = {
   'united states of america': 'United States',
   'democratic republic of the congo': 'Congo, The Democratic Republic of the',
   'republic of the congo': 'Congo',
+  'congo dr': 'Congo, The Democratic Republic of the',
+  'dr congo': 'Congo, The Democratic Republic of the',
   'cape verde': 'Cabo Verde',
   'saudi arabia': 'Saudi Arabia',
   'new zealand': 'New Zealand',

@@ -13,6 +13,8 @@ export const WORLD_CUP_FLAG_PATHS = {
   "curacao": "/worldcup-flags/curacao.png",
   "czech republic": "/worldcup-flags/czech-republic.png",
   "democratic republic of the congo": "/worldcup-flags/democratic-republic-of-the-congo.png",
+  "congo dr": "/worldcup-flags/democratic-republic-of-the-congo.png",
+  "dr congo": "/worldcup-flags/democratic-republic-of-the-congo.png",
   "ecuador": "/worldcup-flags/ecuador.png",
   "egypt": "/worldcup-flags/egypt.png",
   "england": "/worldcup-flags/england.png",
