@@ -32,9 +32,10 @@ export default function GamesScroller({ games, stadiumsById, prefersReducedMotio
     return () => observer.disconnect()
   }, [games])
 
-  // Auto-scroll vai-e-volta (ping-pong) suave.
+  // Auto-scroll vai-e-volta (ping-pong) suave. NÃO respeita prefers-reduced-motion:
+  // rolar é essencial para exibir todos os jogos (3 por vez), não é enfeite. TVs/kiosks
+  // costumam ter "reduzir movimento" ligado, o que esconderia metade dos jogos.
   useEffect(() => {
-    if (prefersReducedMotion) return undefined
     const viewport = viewportRef.current
     if (!viewport) return undefined
 
@@ -70,7 +71,7 @@ export default function GamesScroller({ games, stadiumsById, prefersReducedMotio
 
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
-  }, [games, prefersReducedMotion])
+  }, [games])
 
   return (
     <div className="games-scroll-viewport" ref={viewportRef}>
