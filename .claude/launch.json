@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ranking-grupovieira",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "D:\\rankinggrupovieira", "run", "dev"],
+      "port": 5174
+    }
+  ]
+}

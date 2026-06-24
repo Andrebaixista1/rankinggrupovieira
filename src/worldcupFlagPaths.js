@@ -31,6 +31,7 @@ export const WORLD_CUP_FLAG_PATHS = {
   "morocco": "/worldcup-flags/morocco.png",
   "netherlands": "/worldcup-flags/netherlands.png",
   "new zealand": "/worldcup-flags/new-zealand.png",
+  "northern ireland": "/worldcup-flags/northern-ireland.png",
   "norway": "/worldcup-flags/norway.png",
   "panama": "/worldcup-flags/panama.png",
   "paraguay": "/worldcup-flags/paraguay.png",
@@ -48,5 +49,6 @@ export const WORLD_CUP_FLAG_PATHS = {
   "turkey": "/worldcup-flags/turkey.png",
   "united states": "/worldcup-flags/united-states.png",
   "uruguay": "/worldcup-flags/uruguay.png",
-  "uzbekistan": "/worldcup-flags/uzbekistan.png"
+  "uzbekistan": "/worldcup-flags/uzbekistan.png",
+  "wales": "/worldcup-flags/wales.png"
 }

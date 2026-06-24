@@ -641,6 +641,41 @@
   --games-flag-height: clamp(5.15rem, 5.2vw, 5.9rem);
 }
 
+/* Modo scroller: mostra 3 jogos por vez com auto-scroll vai-e-volta. */
+.games-table.is-scroller {
+  justify-content: center;
+  --games-text-scale: 1.45;
+  --games-row-gap: 14px;
+  --games-row-padding-y: 18px;
+  --games-row-padding-x: 18px;
+  --games-flag-width: clamp(10rem, 11vw, 13rem);
+  --games-flag-height: clamp(5.9rem, 6.5vw, 7.6rem);
+}
+
+.games-scroll-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.games-table-body.is-scroller {
+  display: flex;
+  flex-direction: column;
+  gap: var(--games-row-gap);
+  overflow: visible;
+  grid-auto-rows: initial;
+  align-content: initial;
+  padding-right: 0;
+}
+
+.games-table-body.is-scroller .game-row {
+  height: auto;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
 .games-table-body {
   min-height: 0;
   display: grid;
@@ -1650,4 +1685,67 @@
     animation: none;
     opacity: 0;
   }
+}
+
+
+/* ─── Skeleton Loader ─────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+.skeleton-row {
+  pointer-events: none;
+}
+
+.skeleton-eyebrow {
+  width: 72px;
+  height: 11px;
+  margin-bottom: 8px;
+}
+
+.skeleton-title {
+  width: 260px;
+  height: 28px;
+}
+
+.skeleton-pos {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.skeleton-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.skeleton-name {
+  width: 160px;
+  height: 16px;
+  margin-bottom: 6px;
+}
+
+.skeleton-meta {
+  width: 100px;
+  height: 12px;
+}
+
+.skeleton-value {
+  width: 80px;
+  height: 18px;
+  margin-left: auto;
+}
+
+.skeleton-footnote {
+  width: 240px;
+  height: 11px;
 }
