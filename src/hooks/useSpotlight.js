@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SPOTLIGHT_DURATION } from '../lib/constants.js'
 
-const SPOTLIGHT_SKIP_IDS = new Set(['supervisores', 'gerentes', 'worldcup-games'])
+const SPOTLIGHT_SKIP_IDS = new Set(['supervisores', 'gerentes', 'worldcup-games', 'europa5'])
 
 export function useSpotlight() {
   const [showSpotlight, setShowSpotlight] = useState(false)

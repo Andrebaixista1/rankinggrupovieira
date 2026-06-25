@@ -18,6 +18,12 @@ export default defineConfig({
         secure: true,
         rewrite: () => '/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=200&dates=20260611-20260719',
       },
+      '/api/europa5-stats': {
+        target: 'https://app.apivieiracred.com.br',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/webhook/api/saldo',
+      },
     },
   },
 })

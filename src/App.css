@@ -1749,3 +1749,320 @@
   width: 240px;
   height: 11px;
 }
+
+/* ─── Tela comercial Nova Europa 5 ─────────────────── */
+.e5-card .rank-head h1 {
+  background: linear-gradient(90deg, #0f8a43, #1e9e72 55%, #c79a07);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.e5-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(16px, 2.4vh, 30px);
+  padding: 8px 4px;
+}
+
+.e5-tagline {
+  margin: 0;
+  text-align: center;
+  color: rgba(20, 53, 29, 0.74);
+  font-size: clamp(1rem, 1.7vw, 1.5rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.e5-bases {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 1.4vw, 20px);
+}
+
+.e5-base {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: clamp(16px, 2.4vh, 30px) 14px clamp(14px, 2vh, 24px);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(20, 53, 29, 0.08);
+  box-shadow: 0 16px 36px rgba(28, 43, 26, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  animation: rowIn 520ms ease both;
+  animation-delay: var(--delay, 0ms);
+  --e5-accent: #0f8a43;
+  --e5-soft: rgba(15, 138, 67, 0.14);
+}
+.e5-base-entrantes { --e5-accent: #c79a07; --e5-soft: rgba(243, 211, 63, 0.24); }
+.e5-base-rvx { --e5-accent: #1d4ed8; --e5-soft: rgba(37, 99, 235, 0.14); }
+.e5-base-in100 { --e5-accent: #0d6b32; --e5-soft: rgba(13, 107, 50, 0.14); }
+
+.e5-base-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--e5-soft);
+  color: var(--e5-accent);
+  font-size: 1.2rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.e5-base-num {
+  color: var(--e5-accent);
+  font-family: var(--display-font, inherit);
+  font-size: clamp(2.4rem, 4.4vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.e5-inf { font-size: 1.15em; }
+
+.e5-base-label {
+  margin-top: 8px;
+  color: #14351d;
+  font-size: clamp(1rem, 1.5vw, 1.35rem);
+  font-weight: 800;
+}
+
+.e5-base-desc {
+  margin-top: 2px;
+  color: rgba(20, 53, 29, 0.55);
+  font-size: clamp(0.72rem, 0.95vw, 0.95rem);
+  font-weight: 500;
+}
+
+.e5-volume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 3vw, 46px);
+  padding: clamp(14px, 2vh, 22px) 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(15, 138, 67, 0.08), rgba(243, 211, 63, 0.08));
+  border: 1px solid rgba(20, 53, 29, 0.08);
+}
+
+.e5-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.e5-stat-num {
+  color: #0f8a43;
+  font-family: var(--display-font, inherit);
+  font-size: clamp(1.7rem, 3vw, 2.9rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.e5-stat-cap { color: #c79a07; }
+
+.e5-stat-label {
+  color: rgba(20, 53, 29, 0.6);
+  font-size: clamp(0.74rem, 1vw, 1rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.e5-stat-sep {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(20, 53, 29, 0.12);
+}
+
+@media (max-width: 780px) {
+  .e5-bases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .e5-volume { flex-wrap: wrap; gap: 16px 24px; }
+  .e5-stat-sep { display: none; }
+}
+
+/* ─── Modal de benefícios do Europa 5 ──────────────── */
+.e5-card { position: relative; }
+
+.e5-benefits-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 3vw, 40px);
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(8, 74, 45, 0.28), rgba(8, 74, 45, 0.44));
+  backdrop-filter: blur(7px);
+}
+
+.e5-benefits-card {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 3.5vw, 52px);
+  width: min(94%, 940px);
+  padding: clamp(22px, 4vh, 44px) clamp(26px, 4vw, 54px);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid rgba(20, 53, 29, 0.10);
+  box-shadow: 0 30px 84px rgba(8, 41, 46, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.e5-benefits-brand {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding-right: clamp(22px, 3.5vw, 52px);
+  border-right: 1px solid rgba(20, 53, 29, 0.12);
+}
+
+.e5-globe {
+  width: clamp(92px, 11vw, 148px);
+  height: clamp(92px, 11vw, 148px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(34, 197, 94, 0.16), transparent 62%),
+    rgba(15, 138, 67, 0.06);
+  margin-bottom: 6px;
+}
+.e5-globe-svg { width: 76%; height: 76%; }
+
+.e5-brand-name {
+  font-family: var(--display-font, inherit);
+  font-size: clamp(1.7rem, 3.2vw, 2.9rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #14351d;
+}
+.e5-brand-sub {
+  font-size: clamp(0.78rem, 1.1vw, 1.05rem);
+  font-weight: 600;
+  color: rgba(20, 53, 29, 0.56);
+}
+
+.e5-benefits-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(11px, 1.9vh, 20px);
+}
+
+.e5-benefit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #14351d;
+  font-size: clamp(1.05rem, 1.7vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.e5-benefit-check {
+  flex: 0 0 auto;
+  width: clamp(30px, 2.6vw, 40px);
+  height: clamp(30px, 2.6vw, 40px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f8a43, #1ec873);
+  box-shadow: 0 6px 16px rgba(15, 138, 67, 0.32);
+}
+.e5-benefit-check svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 720px) {
+  .e5-benefits-card { flex-direction: column; gap: 18px; text-align: center; }
+  .e5-benefits-brand { padding-right: 0; padding-bottom: 18px; border-right: none; border-bottom: 1px solid rgba(20, 53, 29, 0.12); }
+}
+
+/* ─── Pulse do globo + passo a passo (modal Europa 5) ── */
+.e5-globe { position: relative; }
+.e5-globe::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 76%;
+  height: 76%;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 138, 67, 0.45);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.85);
+  animation: e5GlobeRipple 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes e5GlobeRipple {
+  0%   { transform: translate(-50%, -50%) scale(0.85); opacity: 0.55; }
+  70%  { opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.55); opacity: 0; }
+}
+.e5-globe-svg { transform-origin: center; animation: e5GlobeBeat 2.4s ease-in-out infinite; }
+@keyframes e5GlobeBeat {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.07); }
+}
+
+.e5-modal-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.e5-modal-right > * { width: 100%; }
+
+.e5-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.7vh, 18px);
+}
+.e5-step { display: flex; align-items: flex-start; gap: 14px; }
+.e5-step-num {
+  flex: 0 0 auto;
+  width: clamp(28px, 2.4vw, 38px);
+  height: clamp(28px, 2.4vw, 38px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f8a43, #1ec873);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: clamp(0.9rem, 1.3vw, 1.2rem);
+  box-shadow: 0 6px 16px rgba(15, 138, 67, 0.30);
+}
+.e5-step-text { display: flex; flex-direction: column; gap: 2px; padding-top: 3px; }
+.e5-step-title {
+  color: #14351d;
+  font-size: clamp(1rem, 1.5vw, 1.38rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.e5-step-desc {
+  color: rgba(20, 53, 29, 0.6);
+  font-size: clamp(0.82rem, 1.12vw, 1.08rem);
+  font-weight: 500;
+}

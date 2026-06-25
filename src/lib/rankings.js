@@ -25,6 +25,7 @@ export const baseRankings = [
   { id: 'novo', kicker: 'VENDAS', title: 'Ranking TOP 10 Novo', subtitle: 'Hoje', description: 'Resultado do dia atual.', limit: 10, rows: [] },
   { id: 'clt', kicker: 'VENDAS', title: 'Ranking TOP 10 CLT', subtitle: 'Hoje', description: 'Resultado do dia atual.', limit: 10, rows: [] },
   { id: 'worldcup-games', kicker: 'MUNDIAL', title: 'Jogos de Hoje - Ao Vivo', subtitle: 'Hoje', description: 'Tabela dos jogos e placares do dia.', limit: null, rows: [] },
+  { id: 'europa5', kicker: 'PLATAFORMA', title: 'Nova Europa 5', subtitle: 'Consultas', description: 'Consultas inteligentes em 4 bases.', limit: null, rows: [] },
 ]
 
 function buildProductSet(items) {

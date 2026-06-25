@@ -9,12 +9,14 @@ import { baseRankings, preserveWorldCupRanking } from './lib/rankings.js'
 
 import { useRankingData } from './hooks/useRankingData.js'
 import { useWorldCupGames } from './hooks/useWorldCupGames.js'
+import { useEuropa5Stats } from './hooks/useEuropa5Stats.js'
 import { useSpotlight } from './hooks/useSpotlight.js'
 import { useGoalModal } from './hooks/useGoalModal.js'
 
 import IntroScreen from './components/IntroScreen.jsx'
 import SkeletonLoader from './components/SkeletonLoader.jsx'
 import RankCard from './components/RankCard.jsx'
+import Europa5Card from './components/Europa5Card.jsx'
 import SpotlightOverlay from './components/SpotlightOverlay.jsx'
 import GoalModal from './components/GoalModal.jsx'
 
@@ -60,6 +62,9 @@ function App() {
     isMountedRef,
     setRankings,
   })
+
+  // Europa5 stats polling (só quando a aba está ativa)
+  const { europa5Stats, europa5Ready } = useEuropa5Stats({ active: current.id === 'europa5' })
 
   // Spotlight overlay
   const { showSpotlight, spotlightRankingId, spotlightRow, openSpotlightForRanking, closeSpotlight } = useSpotlight()
@@ -169,6 +174,20 @@ function App() {
             <IntroScreen key="intro" prefersReducedMotion={prefersReducedMotion} />
           ) : isLoading && !hasData ? (
             <SkeletonLoader key="skeleton" prefersReducedMotion={prefersReducedMotion} />
+          ) : current.id === 'europa5' ? (
+            <Europa5Card
+              key={current.id}
+              current={current}
+              stats={europa5Stats}
+              ready={europa5Ready}
+              isPaused={isPaused}
+              canRotate={canRotate}
+              cycleKey={cycleKey}
+              prefersReducedMotion={prefersReducedMotion}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              onTogglePause={handleTogglePause}
+            />
           ) : (
             <RankCard
               key={current.id}
