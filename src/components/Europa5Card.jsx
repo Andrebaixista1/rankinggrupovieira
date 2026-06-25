@@ -59,8 +59,8 @@ function Globe() {
       <path d="M2 12h20" stroke="url(#e5g)" strokeWidth="2" />
       <defs>
         <linearGradient id="e5g" x1="2" y1="12" x2="22" y2="12" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#0f8a43" />
-          <stop offset="1" stopColor="#1ec873" />
+          <stop stopColor="#007AFF" />
+          <stop offset="1" stopColor="#00C7FF" />
         </linearGradient>
       </defs>
     </svg>
