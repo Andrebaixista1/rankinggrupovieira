@@ -23,6 +23,8 @@ export const COUNTRY_ALIAS_MAP = {
   'saudi arabia': 'Saudi Arabia',
   'new zealand': 'New Zealand',
   'ivory coast ': "Côte d'Ivoire",
+  turkiye: 'Turkey',
+  turkey: 'Turkey',
 }
 
 export const COUNTRY_DISPLAY_CODE_MAP = new Map([
@@ -129,10 +131,11 @@ export const COUNTRY_DISPLAY_CODE_MAP = new Map([
 
 export function normalizeCountryKey(value) {
   return String(value || '')
+    .normalize('NFD')            // decompõe pré-compostos: ç → c + ◌̧, ü → u + ◌̈
+    .replace(/[̀-ͯ]/g, '') // remove os diacríticos combinantes
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
-    .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 }
