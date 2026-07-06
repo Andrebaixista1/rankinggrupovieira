@@ -17,9 +17,11 @@ O painel alterna automaticamente entre:
 - **Ranking Grupo** — por franquia
 - **Ranking TOP 10 Portabilidade / Novo / CLT** — por produto
 - **Jogos de Hoje - Ao Vivo** — placares e status via API da ESPN
-- **Nova Europa 5** — tela comercial da plataforma de consultas
+- **Nova Europa 5** — vídeo comercial da plataforma (`src/assets/Europa5 Comercial.mp4`) em tela cheia
 
 Recursos: tela de intro, spotlight do 1º lugar a cada troca de ranking, modal de gol ao vivo e skeleton loader durante o carregamento.
+
+Cada tela fica 30s (`ROTATION_INTERVAL`), exceto a do Nova Europa 5: ela avança somente quando o vídeo termina (evento `ended`), com a barra de progresso acompanhando a duração real do vídeo. O botão de pausa também pausa o vídeo.
 
 ## Rodando localmente
 

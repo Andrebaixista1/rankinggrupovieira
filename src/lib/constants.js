@@ -4,6 +4,7 @@ export const WORLD_CUP_GAMES_API_URL = '/api/worldcup-games'
 export const EUROPA5_STATS_API_URL = '/api/europa5-stats'
 export const EUROPA5_POLL_INTERVAL = 60000
 export const ROTATION_INTERVAL = 30000
+export const EUROPA5_ROTATION_INTERVAL = 40000
 export const WORLD_CUP_GAMES_POLL_INTERVAL = 30000
 export const WORLD_CUP_API_RETRY_COUNT = 2
 export const WORLD_CUP_API_RETRY_DELAY_MS = 900

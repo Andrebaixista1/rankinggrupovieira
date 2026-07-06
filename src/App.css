@@ -1842,3 +1842,39 @@
   font-size: clamp(0.82rem, 1.12vw, 1.08rem);
   font-weight: 500;
 }
+
+/* ─── Tela de vídeo do Europa 5 ────────────────────── */
+.e5-video-card {
+  padding: 0;
+  background: #000;
+}
+
+.e5-video-card::before,
+.e5-video-card::after {
+  display: none;
+}
+
+.e5-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  z-index: 0;
+}
+
+.e5-video-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px 28px 18px;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.55) 70%);
+  z-index: 2;
+}
+
+.e5-video-card .footnote,
+.e5-video-card .footnote.accent {
+  color: rgba(255, 255, 255, 0.78);
+}

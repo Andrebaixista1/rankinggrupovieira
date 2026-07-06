@@ -9,7 +9,6 @@ import { baseRankings, preserveWorldCupRanking } from './lib/rankings.js'
 
 import { useRankingData } from './hooks/useRankingData.js'
 import { useWorldCupGames } from './hooks/useWorldCupGames.js'
-import { useEuropa5Stats } from './hooks/useEuropa5Stats.js'
 import { useSpotlight } from './hooks/useSpotlight.js'
 import { useGoalModal } from './hooks/useGoalModal.js'
 
@@ -63,9 +62,6 @@ function App() {
     setRankings,
   })
 
-  // Europa5 stats polling (só quando a aba está ativa)
-  const { europa5Stats, europa5Ready } = useEuropa5Stats({ active: current.id === 'europa5' })
-
   // Spotlight overlay
   const { showSpotlight, spotlightRankingId, spotlightRow, openSpotlightForRanking, closeSpotlight } = useSpotlight()
 
@@ -113,28 +109,38 @@ function App() {
   const canRotate = hasData && !isLoading && !isPaused && !showIntro && !showGoalModal
     && (current.id !== 'worldcup-games' || worldCupGamesReady)
 
+  const advanceScreen = useCallback(() => {
+    const list = rankingsRef.current.length ? rankingsRef.current : baseRankings
+    const nextIndex = (activeIndexRef.current + 1) % list.length
+    const nextRanking = list[nextIndex] || baseRankings[nextIndex] || baseRankings[0]
+    activeIndexRef.current = nextIndex
+    setActiveIndex(nextIndex)
+    setCycleKey((prev) => prev + 1)
+    openSpotlightForRanking(nextRanking)
+
+    if (nextIndex === 0) {
+      setShowIntro(true)
+      fetchData()
+    }
+  }, [fetchData, openSpotlightForRanking])
+
   useEffect(() => {
     if (!hasData || showIntro || isPaused || showSpotlight || showGoalModal) return undefined
 
+    // Europa5 avança quando o vídeo termina (evento `ended`), não por timer.
+    if (current.id === 'europa5') return undefined
+
     // Lê `rankings` via ref: o polling de jogos atualiza a lista a cada 30s e não
     // deve reiniciar este timer (senão a aba de jogos nunca avança de página).
-    const timer = setTimeout(() => {
-      const list = rankingsRef.current.length ? rankingsRef.current : baseRankings
-      const nextIndex = (activeIndexRef.current + 1) % list.length
-      const nextRanking = list[nextIndex] || baseRankings[nextIndex] || baseRankings[0]
-      activeIndexRef.current = nextIndex
-      setActiveIndex(nextIndex)
-      setCycleKey((prev) => prev + 1)
-      openSpotlightForRanking(nextRanking)
-
-      if (nextIndex === 0) {
-        setShowIntro(true)
-        fetchData()
-      }
-    }, ROTATION_INTERVAL)
+    const timer = setTimeout(advanceScreen, ROTATION_INTERVAL)
 
     return () => clearTimeout(timer)
-  }, [activeIndex, fetchData, hasData, isPaused, openSpotlightForRanking, showGoalModal, showIntro, showSpotlight])
+  }, [activeIndex, advanceScreen, current.id, hasData, isPaused, showGoalModal, showIntro, showSpotlight])
+
+  const handleVideoEnded = useCallback(() => {
+    if (!hasData || isPaused) return
+    advanceScreen()
+  }, [advanceScreen, hasData, isPaused])
 
   // Keyboard: Escape closes modals
   useEffect(() => {
@@ -178,15 +184,13 @@ function App() {
             <Europa5Card
               key={current.id}
               current={current}
-              stats={europa5Stats}
-              ready={europa5Ready}
               isPaused={isPaused}
               canRotate={canRotate}
               cycleKey={cycleKey}
-              prefersReducedMotion={prefersReducedMotion}
               onPrev={handlePrev}
               onNext={handleNext}
               onTogglePause={handleTogglePause}
+              onVideoEnded={handleVideoEnded}
             />
           ) : (
             <RankCard
