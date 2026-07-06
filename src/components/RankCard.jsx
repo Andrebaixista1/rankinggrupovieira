@@ -55,10 +55,10 @@ export default function RankCard({
         </div>
         <div className="rank-status">
           <div className="status-pills" aria-label="Contexto visual do tema">
-            <span className="status-pill status-pill-active">{isWorldCup ? 'Ao vivo' : 'Copa do Mundo'}</span>
+            <span className="status-pill status-pill-active">{isWorldCup ? 'Ao vivo' : 'Ranking'}</span>
             <span className="status-pill">VieiraCred</span>
           </div>
-          <img className="brand-logo" src="/logo-vieira-copa.png" alt="VieiraCred" />
+          <img className="brand-logo" src="/logo-vieira-bolinha.webp" alt="VieiraCred" />
         </div>
       </div>
 

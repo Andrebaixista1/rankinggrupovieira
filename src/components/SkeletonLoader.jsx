@@ -18,7 +18,7 @@ export default function SkeletonLoader({ prefersReducedMotion }) {
           <div className="skeleton skeleton-title" />
         </div>
         <div className="rank-status">
-          <img className="brand-logo" src="/logo-vieira-copa.png" alt="VieiraCred" />
+          <img className="brand-logo" src="/logo-vieira-bolinha.webp" alt="VieiraCred" />
         </div>
       </div>
 

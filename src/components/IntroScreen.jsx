@@ -23,10 +23,10 @@ export default function IntroScreen({ prefersReducedMotion }) {
           Ranking Formalizado Grupo Vieira
         </Motion.p>
         <Motion.div className="intro-logo" variants={prefersReducedMotion ? undefined : introItemMotion}>
-          <img src="/logo-vieira-copa.png" alt="VieiraCred" />
+          <img src="/logo-vieira-bolinha.webp" alt="VieiraCred" />
         </Motion.div>
         <Motion.p className="intro-subtitle" variants={prefersReducedMotion ? undefined : introItemMotion}>
-          Temporada Copa do Mundo. Preparando os rankings...
+          Preparando os rankings...
         </Motion.p>
       </Motion.div>
     </Motion.section>

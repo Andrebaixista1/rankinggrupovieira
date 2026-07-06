@@ -3,11 +3,34 @@
 :root {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --display-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* ─── Paleta VieiraCred (light / azul + branco) ─────
+     Azul da marca #066EEA (mesma da bolinha do logo). */
+  --brand: #066eea;
+  --brand-bright: #2f7dff;
+  --brand-deep: #0a4fb0;         /* azul legível sobre branco */
+  --brand-soft: rgba(6, 110, 234, 0.1);
+  --cyan: #22b6ff;
+  --cyan-bright: #00c7ff;
+
+  --bg-deep: #eaf1fb;            /* fundo da página */
+  --bg-panel-top: #ffffff;       /* topo do card */
+  --bg-panel-bottom: #f4f8ff;    /* base do card */
+
+  --surface: #ffffff;
+  --surface-strong: #ffffff;
+  --border: rgba(6, 110, 234, 0.12);
+  --border-strong: rgba(6, 110, 234, 0.22);
+
+  --text: #14233f;
+  --text-dim: rgba(20, 35, 63, 0.62);
+  --text-faint: rgba(20, 35, 63, 0.42);
+
   font-size: 16px;
   line-height: 1.5;
   font-weight: 400;
-  color: #16361f;
-  background-color: #f6f7f4;
+  color: var(--text);
+  background-color: var(--bg-deep);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -29,89 +52,27 @@ body,
 body {
   margin: 0;
   min-height: 100%;
-  color: #16361f;
-  background: linear-gradient(90deg, #009b3a 50%, #fedf00 50%);
+  color: var(--text);
+  background:
+    radial-gradient(1200px circle at 18% -8%, rgba(47, 125, 255, 0.16), transparent 42%),
+    radial-gradient(1000px circle at 88% 4%, rgba(0, 199, 255, 0.12), transparent 40%),
+    radial-gradient(1400px circle at 50% 120%, rgba(6, 110, 234, 0.1), transparent 55%),
+    linear-gradient(180deg, #f2f7ff 0%, var(--bg-deep) 60%, #e2ecfa 100%);
   position: relative;
   overflow: hidden;
   z-index: 0; /* Creates stacking context so pseudo-elements are above background */
 }
 
-body::before,
-body::after {
-  content: '';
-  position: fixed;
-  pointer-events: none;
-}
-
+/* Moldura sutil da marca (substitui o campo de futebol) */
 body::before {
-  inset: 24px;
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  z-index: -1;
-  background: 
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.9) 8px, transparent 9px),
-    radial-gradient(circle at 50% 50%, transparent 100px, rgba(255, 255, 255, 0.9) 100px, rgba(255, 255, 255, 0.9) 104px, transparent 104px),
-    linear-gradient(90deg, transparent calc(50% - 2px), rgba(255, 255, 255, 0.9) calc(50% - 2px), rgba(255, 255, 255, 0.9) calc(50% + 2px), transparent calc(50% + 2px));
-}
-
-body::after {
-  inset: 0;
-  z-index: -2;
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(0,0,0,0.06) 0,
-    rgba(0,0,0,0.06) 40px,
-    transparent 40px,
-    transparent 80px
-  );
-}
-
-/* Left Grande e Pequena Área + Penalty Spot */
-#root::before {
   content: '';
   position: fixed;
-  top: 50%;
-  left: 24px;
-  transform: translateY(-50%);
-  width: 150px;
-  height: 320px;
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  border-left: none;
+  inset: 22px;
   pointer-events: none;
+  border: 1px solid rgba(6, 110, 234, 0.14);
+  border-radius: 26px;
+  box-shadow: inset 0 0 120px rgba(6, 110, 234, 0.06);
   z-index: -1;
-  background:
-    /* Top line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 0 90px / 50px 4px no-repeat,
-    /* Bottom line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 0 226px / 50px 4px no-repeat,
-    /* Right line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 46px 90px / 4px 140px no-repeat,
-    /* Penalty Spot */
-    radial-gradient(circle at 100px 160px, rgba(255, 255, 255, 0.9) 4px, transparent 5px) no-repeat;
-}
-
-/* Right Grande e Pequena Área + Penalty Spot */
-#root::after {
-  content: '';
-  position: fixed;
-  top: 50%;
-  right: 24px;
-  transform: translateY(-50%);
-  width: 150px;
-  height: 320px;
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  border-right: none;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    /* Top line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 90px / 50px 4px no-repeat,
-    /* Bottom line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 226px / 50px 4px no-repeat,
-    /* Left line pequena área */
-    linear-gradient(rgba(255,255,255,0.9), rgba(255,255,255,0.9)) 100px 90px / 4px 140px no-repeat,
-    /* Penalty Spot */
-    radial-gradient(circle at 50px 160px, rgba(255, 255, 255, 0.9) 4px, transparent 5px) no-repeat;
 }
 
 a {

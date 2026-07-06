@@ -185,7 +185,7 @@ export default function Europa5Card({
             <span className="status-pill status-pill-active">Consultas</span>
             <span className="status-pill">VieiraCred</span>
           </div>
-          <img className="brand-logo" src="/logo-vieira-copa.png" alt="VieiraCred" />
+          <img className="brand-logo" src="/logo-vieira-bolinha.webp" alt="VieiraCred" />
         </div>
       </div>
 
